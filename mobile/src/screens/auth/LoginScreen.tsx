@@ -11,21 +11,20 @@ import {
     ActivityIndicator,
     Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useTheme } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthStore } from '../../store';
-import { authApi, getErrorMessage } from '../../api/client';
 import { AuthStackParamList } from '../../navigation';
 
 type LoginNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
 export default function LoginScreen() {
     const navigation = useNavigation<LoginNavigationProp>();
-    const { setTokens, setUser } = useAuthStore();
+    const { login, isLoading } = useAuthStore();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
@@ -33,24 +32,23 @@ export default function LoginScreen() {
             return;
         }
 
-        setIsLoading(true);
+        setLoading(true);
         try {
-            const response = await authApi.login({ email, password });
-            const { accessToken, refreshToken, ...user } = response.data;
-
-            setTokens(accessToken, refreshToken);
-            setUser(user);
-        } catch (error) {
-            Alert.alert('Login Failed', getErrorMessage(error));
+            await login(email, password);
+            // Navigation is handled automatically by auth state change
+        } catch (error: any) {
+            Alert.alert('Login Failed', error.message || 'Invalid email or password');
         } finally {
-            setIsLoading(false);
+            setLoading(false);
         }
     };
+
+    const { colors } = useTheme(); // Note: must import useTheme
 
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.container}
+            style={[styles.container, { backgroundColor: colors.background }]}
         >
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
@@ -59,20 +57,21 @@ export default function LoginScreen() {
                 {/* Logo Area */}
                 <View style={styles.logoContainer}>
                     <Text style={styles.logoText}>🏍️</Text>
-                    <Text style={styles.appName}>Vec-Doc</Text>
-                    <Text style={styles.tagline}>Your bike's digital companion</Text>
+                    <Text style={[styles.appName, { color: colors.text }]}>Vec-Doc</Text>
+                    <Text style={[styles.tagline, { color: colors.text, opacity: 0.7 }]}>Your bike's digital companion</Text>
+                    <Text style={styles.localBadge}>📱 Works offline</Text>
                 </View>
 
                 {/* Login Form */}
-                <View style={styles.formContainer}>
-                    <Text style={styles.title}>Welcome Back</Text>
+                <View style={[styles.formContainer, { backgroundColor: colors.card }]}>
+                    <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
 
                     <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Email</Text>
+                        <Text style={[styles.label, { color: colors.text, opacity: 0.7 }]}>Email</Text>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                             placeholder="Enter your email"
-                            placeholderTextColor="#868e96"
+                            placeholderTextColor={colors.text + '80'}
                             value={email}
                             onChangeText={setEmail}
                             keyboardType="email-address"
@@ -82,11 +81,11 @@ export default function LoginScreen() {
                     </View>
 
                     <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Password</Text>
+                        <Text style={[styles.label, { color: colors.text, opacity: 0.7 }]}>Password</Text>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                             placeholder="Enter your password"
-                            placeholderTextColor="#868e96"
+                            placeholderTextColor={colors.text + '80'}
                             value={password}
                             onChangeText={setPassword}
                             secureTextEntry
@@ -94,16 +93,12 @@ export default function LoginScreen() {
                         />
                     </View>
 
-                    <TouchableOpacity style={styles.forgotButton}>
-                        <Text style={styles.forgotText}>Forgot Password?</Text>
-                    </TouchableOpacity>
-
                     <TouchableOpacity
-                        style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+                        style={[styles.loginButton, { backgroundColor: colors.primary }, (loading || isLoading) && styles.loginButtonDisabled]}
                         onPress={handleLogin}
-                        disabled={isLoading}
+                        disabled={loading || isLoading}
                     >
-                        {isLoading ? (
+                        {(loading || isLoading) ? (
                             <ActivityIndicator color="#fff" />
                         ) : (
                             <Text style={styles.loginButtonText}>Sign In</Text>
@@ -112,16 +107,16 @@ export default function LoginScreen() {
 
                     {/* Divider */}
                     <View style={styles.divider}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.dividerText}>OR</Text>
-                        <View style={styles.dividerLine} />
+                        <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                        <Text style={[styles.dividerText, { color: colors.text, opacity: 0.5 }]}>OR</Text>
+                        <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
                     </View>
 
                     {/* Register Link */}
                     <View style={styles.registerContainer}>
-                        <Text style={styles.registerText}>Don't have an account? </Text>
+                        <Text style={[styles.registerText, { color: colors.text, opacity: 0.7 }]}>Don't have an account? </Text>
                         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                            <Text style={styles.registerLink}>Sign Up</Text>
+                            <Text style={[styles.registerLink, { color: colors.primary }]}>Sign Up</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -133,7 +128,6 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#1a1a2e',
     },
     scrollContent: {
         flexGrow: 1,
@@ -151,28 +145,33 @@ const styles = StyleSheet.create({
     appName: {
         fontSize: 36,
         fontWeight: 'bold',
-        color: '#ffffff',
         letterSpacing: 1,
     },
     tagline: {
         fontSize: 14,
-        color: '#868e96',
         marginTop: 4,
     },
+    localBadge: {
+        fontSize: 12,
+        color: '#51cf66',
+        marginTop: 8,
+        backgroundColor: 'rgba(81, 207, 102, 0.1)',
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+    },
     formContainer: {
-        backgroundColor: '#16213e',
         borderRadius: 20,
         padding: 24,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
+        shadowOpacity: 0.1,
         shadowRadius: 8,
         elevation: 5,
     },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#ffffff',
         marginBottom: 24,
         textAlign: 'center',
     },
@@ -182,31 +181,19 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 14,
         fontWeight: '500',
-        color: '#adb5bd',
         marginBottom: 8,
     },
     input: {
-        backgroundColor: '#0f0f23',
         borderRadius: 12,
         padding: 16,
         fontSize: 16,
-        color: '#ffffff',
         borderWidth: 1,
-        borderColor: '#2d3436',
-    },
-    forgotButton: {
-        alignSelf: 'flex-end',
-        marginBottom: 24,
-    },
-    forgotText: {
-        color: '#748ffc',
-        fontSize: 14,
     },
     loginButton: {
-        backgroundColor: '#4c6ef5',
         borderRadius: 12,
         padding: 16,
         alignItems: 'center',
+        marginTop: 8,
         shadowColor: '#4c6ef5',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
@@ -214,7 +201,6 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     loginButtonDisabled: {
-        backgroundColor: '#364fc7',
         opacity: 0.7,
     },
     loginButtonText: {
@@ -230,10 +216,8 @@ const styles = StyleSheet.create({
     dividerLine: {
         flex: 1,
         height: 1,
-        backgroundColor: '#2d3436',
     },
     dividerText: {
-        color: '#868e96',
         paddingHorizontal: 16,
         fontSize: 14,
     },
@@ -242,11 +226,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     registerText: {
-        color: '#adb5bd',
         fontSize: 14,
     },
     registerLink: {
-        color: '#748ffc',
         fontSize: 14,
         fontWeight: '600',
     },

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
     View,
     Text,
@@ -7,35 +7,32 @@ import {
     TouchableOpacity,
     RefreshControl,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useTheme } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useBikeStore, Bike } from '../../store';
-import { bikesApi } from '../../api/client';
+import { useAuthStore, useBikeStore, Bike } from '../../store';
 import { RootStackParamList } from '../../navigation';
 
 type BikesNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function BikesScreen() {
     const navigation = useNavigation<BikesNavigationProp>();
-    const { bikes, setBikes, setLoading, isLoading } = useBikeStore();
+    const { user } = useAuthStore();
+    const { bikes, loadBikes, isLoading } = useBikeStore();
     const [refreshing, setRefreshing] = useState(false);
 
-    const loadBikes = async () => {
-        try {
-            const response = await bikesApi.getAll();
-            setBikes(response.data);
-        } catch (error) {
-            console.error('Failed to load bikes:', error);
-        }
-    };
-
-    useEffect(() => {
-        loadBikes();
-    }, []);
+    // Load bikes when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            if (user?.id) {
+                loadBikes(user.id);
+            }
+        }, [user?.id])
+    );
 
     const onRefresh = async () => {
+        if (!user?.id) return;
         setRefreshing(true);
-        await loadBikes();
+        await loadBikes(user.id);
         setRefreshing(false);
     };
 
@@ -47,51 +44,53 @@ export default function BikesScreen() {
         }
     };
 
+    const { colors } = useTheme();
+
     const renderBikeCard = ({ item }: { item: Bike }) => (
         <TouchableOpacity
-            style={styles.bikeCard}
+            style={[styles.bikeCard, { backgroundColor: colors.card }]}
             onPress={() => navigation.navigate('BikeDetail', { bikeId: item.id })}
         >
             <View style={styles.cardHeader}>
                 <View style={styles.cardHeaderLeft}>
                     <Text style={styles.bikeEmoji}>🏍️</Text>
                     <View>
-                        <Text style={styles.bikeName}>
+                        <Text style={[styles.bikeName, { color: colors.text }]}>
                             {item.nickname || `${item.brand} ${item.model}`}
                         </Text>
-                        <Text style={styles.bikeSubtitle}>
+                        <Text style={[styles.bikeSubtitle, { color: colors.text }]}>
                             {item.brand} {item.model} • {item.year}
                         </Text>
                     </View>
                 </View>
                 {item.isPrimary && (
-                    <View style={styles.primaryBadge}>
-                        <Text style={styles.primaryText}>★</Text>
+                    <View style={[styles.primaryBadge, { backgroundColor: colors.primary }]}>
+                        <Text style={[styles.primaryText, { color: '#fff' }]}>★</Text>
                     </View>
                 )}
             </View>
 
-            <View style={styles.cardStats}>
+            <View style={[styles.cardStats, { borderColor: colors.border }]}>
                 <View style={styles.stat}>
-                    <Text style={styles.statValue}>{item.currentOdometerKm.toLocaleString()}</Text>
-                    <Text style={styles.statLabel}>km</Text>
+                    <Text style={[styles.statValue, { color: colors.text }]}>{item.currentOdometerKm.toLocaleString()}</Text>
+                    <Text style={[styles.statLabel, { color: colors.text }]}>km</Text>
                 </View>
                 <View style={styles.stat}>
-                    <Text style={styles.statValue}>{item.engineCapacityCc || '-'}</Text>
-                    <Text style={styles.statLabel}>cc</Text>
+                    <Text style={[styles.statValue, { color: colors.text }]}>{item.engineCapacityCc || '-'}</Text>
+                    <Text style={[styles.statLabel, { color: colors.text }]}>cc</Text>
                 </View>
                 <View style={styles.stat}>
                     <View style={[
                         styles.statusDot,
                         { backgroundColor: getStatusColor(item.oilChangeStatus?.status) }
                     ]} />
-                    <Text style={styles.statLabel}>Oil</Text>
+                    <Text style={[styles.statLabel, { color: colors.text }]}>Oil</Text>
                 </View>
             </View>
 
             {item.oilChangeStatus && (
                 <View style={styles.oilInfo}>
-                    <View style={styles.progressBar}>
+                    <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
                         <View
                             style={[
                                 styles.progressFill,
@@ -102,7 +101,7 @@ export default function BikesScreen() {
                             ]}
                         />
                     </View>
-                    <Text style={styles.oilText}>
+                    <Text style={[styles.oilText, { color: colors.text }]}>
                         {item.oilChangeStatus.kmRemaining} km until oil change
                     </Text>
                 </View>
@@ -111,12 +110,12 @@ export default function BikesScreen() {
     );
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.title}>My Bikes</Text>
+                <Text style={[styles.title, { color: colors.text }]}>My Bikes</Text>
                 <TouchableOpacity
-                    style={styles.addButton}
+                    style={[styles.addButton, { backgroundColor: colors.primary }]}
                     onPress={() => navigation.navigate('AddBike')}
                 >
                     <Text style={styles.addButtonText}>+ Add</Text>
@@ -130,17 +129,17 @@ export default function BikesScreen() {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listContent}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
                 }
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Text style={styles.emptyEmoji}>🏍️</Text>
-                        <Text style={styles.emptyTitle}>No bikes yet</Text>
-                        <Text style={styles.emptySubtitle}>
+                        <Text style={[styles.emptyTitle, { color: colors.text }]}>No bikes yet</Text>
+                        <Text style={[styles.emptySubtitle, { color: colors.text }]}>
                             Add your first bike to start tracking
                         </Text>
                         <TouchableOpacity
-                            style={styles.emptyButton}
+                            style={[styles.emptyButton, { backgroundColor: colors.primary }]}
                             onPress={() => navigation.navigate('AddBike')}
                         >
                             <Text style={styles.emptyButtonText}>Add Your Bike</Text>
@@ -155,7 +154,6 @@ export default function BikesScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#1a1a2e',
     },
     header: {
         flexDirection: 'row',
@@ -167,10 +165,8 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#ffffff',
     },
     addButton: {
-        backgroundColor: '#4c6ef5',
         borderRadius: 12,
         paddingHorizontal: 16,
         paddingVertical: 10,
@@ -185,7 +181,6 @@ const styles = StyleSheet.create({
         paddingBottom: 100,
     },
     bikeCard: {
-        backgroundColor: '#16213e',
         borderRadius: 16,
         padding: 16,
         marginBottom: 12,
@@ -208,15 +203,13 @@ const styles = StyleSheet.create({
     bikeName: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#ffffff',
     },
     bikeSubtitle: {
         fontSize: 12,
-        color: '#868e96',
+        opacity: 0.7,
         marginTop: 2,
     },
     primaryBadge: {
-        backgroundColor: '#fcc419',
         width: 28,
         height: 28,
         borderRadius: 14,
@@ -224,7 +217,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     primaryText: {
-        color: '#1a1a2e',
         fontSize: 14,
         fontWeight: 'bold',
     },
@@ -234,7 +226,6 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderTopWidth: 1,
         borderBottomWidth: 1,
-        borderColor: '#2d3436',
     },
     stat: {
         alignItems: 'center',
@@ -243,12 +234,11 @@ const styles = StyleSheet.create({
     statValue: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#ffffff',
         marginRight: 4,
     },
     statLabel: {
         fontSize: 12,
-        color: '#868e96',
+        opacity: 0.7,
     },
     statusDot: {
         width: 10,
@@ -261,7 +251,6 @@ const styles = StyleSheet.create({
     },
     progressBar: {
         height: 6,
-        backgroundColor: '#0f0f23',
         borderRadius: 3,
         overflow: 'hidden',
     },
@@ -271,7 +260,7 @@ const styles = StyleSheet.create({
     },
     oilText: {
         fontSize: 12,
-        color: '#868e96',
+        opacity: 0.7,
         marginTop: 6,
     },
     emptyContainer: {
@@ -285,16 +274,14 @@ const styles = StyleSheet.create({
     emptyTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#ffffff',
         marginBottom: 8,
     },
     emptySubtitle: {
         fontSize: 14,
-        color: '#868e96',
+        opacity: 0.7,
         marginBottom: 24,
     },
     emptyButton: {
-        backgroundColor: '#4c6ef5',
         borderRadius: 12,
         paddingHorizontal: 24,
         paddingVertical: 14,

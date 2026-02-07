@@ -1,78 +1,79 @@
 {
-    "expo": {
-        "name": "Vec-Doc",
-        "slug": "vec-doc",
-        "version": "1.0.0",
-        "orientation": "portrait",
-        "icon": "./assets/icon.png",
-        "userInterfaceStyle": "automatic",
-        "splash": {
-            "image": "./assets/splash.png",
-            "resizeMode": "contain",
-            "backgroundColor": "#1a1a2e"
-        },
-        "assetBundlePatterns": [
-            "**/*"
-        ],
-        "ios": {
-            "supportsTablet": true,
-            "bundleIdentifier": "com.vecdoc.app",
-            "infoPlist": {
-                "NSLocationWhenInUseUsageDescription": "Vec-Doc needs your location to track your rides and calculate distance traveled.",
-                "NSLocationAlwaysAndWhenInUseUsageDescription": "Vec-Doc needs background location access to track your rides accurately.",
-                "NSCameraUsageDescription": "Vec-Doc needs camera access to scan documents and identify bike parts.",
-                "UIBackgroundModes": [
-                    "location",
-                    "fetch",
-                    "remote-notification"
-                ]
-            }
-        },
-        "android": {
-            "adaptiveIcon": {
-                "foregroundImage": "./assets/adaptive-icon.png",
-                "backgroundColor": "#1a1a2e"
-            },
-            "package": "com.vecdoc.app",
-            "permissions": [
-                "ACCESS_COARSE_LOCATION",
-                "ACCESS_FINE_LOCATION",
-                "ACCESS_BACKGROUND_LOCATION",
-                "CAMERA",
-                "RECEIVE_BOOT_COMPLETED",
-                "VIBRATE"
-            ],
-            "config": {
-                "googleMaps": {
-                    "apiKey": ""
-                }
-            }
-        },
-        "plugins": [
-            [
-                "expo-location",
-                {
-                    "locationAlwaysAndWhenInUsePermission": "Allow Vec-Doc to use your location for ride tracking."
-                }
-            ],
-            [
-                "expo-notifications",
-                {
-                    "icon": "./assets/notification-icon.png",
-                    "color": "#4c6ef5"
-                }
-            ],
-            [
-                "expo-camera",
-                {
-                    "cameraPermission": "Allow Vec-Doc to access your camera for document scanning and part identification."
-                }
-            ]
-        ],
-        "extra": {
-            "eas": {
-                "projectId": ""
-            }
+  "expo": {
+    "name": "Vec-Doc",
+    "slug": "vec-doc",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a2e"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vecdoc.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Vec-Doc needs your location to track your rides and calculate distance traveled.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Vec-Doc needs background location access to track your rides accurately.",
+        "NSCameraUsageDescription": "Vec-Doc needs camera access to scan documents and identify bike parts.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1a1a2e"
+      },
+      "package": "com.vecdoc.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": ""
         }
+      }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Vec-Doc to use your location for ride tracking."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#4c6ef5"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Vec-Doc to access your camera for document scanning and part identification."
+        }
+      ],
+      "expo-asset"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
     }
+  }
 }

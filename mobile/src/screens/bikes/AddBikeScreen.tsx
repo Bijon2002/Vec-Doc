@@ -8,13 +8,15 @@ import {
     ScrollView,
     ActivityIndicator,
     Alert,
+    Image,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useBikeStore } from '../../store';
-import { bikesApi, getErrorMessage } from '../../api/client';
+import { useNavigation, useTheme } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
+import { useAuthStore, useBikeStore } from '../../store';
 
 export default function AddBikeScreen() {
     const navigation = useNavigation();
+    const { user } = useAuthStore();
     const { addBike } = useBikeStore();
 
     const [brand, setBrand] = useState('');
@@ -25,7 +27,27 @@ export default function AddBikeScreen() {
     const [registration, setRegistration] = useState('');
     const [odometer, setOdometer] = useState('');
     const [oilInterval, setOilInterval] = useState('2500');
+    const [imageUri, setImageUri] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    const pickImage = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission needed', 'Please grant permission to access your photos');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+        });
+
+        if (!result.canceled) {
+            setImageUri(result.assets[0].uri);
+        }
+    };
 
     const handleSave = async () => {
         if (!brand.trim() || !model.trim() || !year.trim()) {
@@ -33,9 +55,15 @@ export default function AddBikeScreen() {
             return;
         }
 
+        if (!user) {
+            Alert.alert('Error', 'Please login first');
+            return;
+        }
+
         setIsLoading(true);
         try {
-            const response = await bikesApi.create({
+            await addBike({
+                userId: user.id,
                 brand: brand.trim(),
                 model: model.trim(),
                 year: parseInt(year),
@@ -44,41 +72,60 @@ export default function AddBikeScreen() {
                 registrationNumber: registration.trim() || undefined,
                 currentOdometerKm: odometer ? parseInt(odometer) : 0,
                 oilChangeIntervalKm: parseInt(oilInterval) || 2500,
+                lastOilChangeKm: odometer ? parseInt(odometer) : 0,
+                imageUri: imageUri || undefined,
+                fuelType: 'petrol',
+                isPrimary: false,
+                isActive: true,
             });
 
-            addBike(response.data);
             Alert.alert('Success', 'Bike added successfully!', [
                 { text: 'OK', onPress: () => navigation.goBack() }
             ]);
-        } catch (error) {
-            Alert.alert('Error', getErrorMessage(error));
+        } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to add bike');
         } finally {
             setIsLoading(false);
         }
     };
 
+    const { colors } = useTheme();
+
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Basic Info</Text>
+        <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
+            <TouchableOpacity
+                style={[styles.imagePicker, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={pickImage}
+            >
+                {imageUri ? (
+                    <Image source={{ uri: imageUri }} style={styles.bikeImage} />
+                ) : (
+                    <View style={styles.placeholderImage}>
+                        <Text style={[styles.placeholderText, { color: colors.text, opacity: 0.5 }]}>+ Add Bike Photo</Text>
+                    </View>
+                )}
+            </TouchableOpacity>
+
+            <View style={[styles.section, { backgroundColor: colors.card }]}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Info</Text>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Brand *</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>Brand *</Text>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                         placeholder="e.g., Royal Enfield, Honda"
-                        placeholderTextColor="#868e96"
+                        placeholderTextColor={colors.text + '80'}
                         value={brand}
                         onChangeText={setBrand}
                     />
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Model *</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>Model *</Text>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                         placeholder="e.g., Classic 350, Activa"
-                        placeholderTextColor="#868e96"
+                        placeholderTextColor={colors.text + '80'}
                         value={model}
                         onChangeText={setModel}
                     />
@@ -86,11 +133,11 @@ export default function AddBikeScreen() {
 
                 <View style={styles.row}>
                     <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                        <Text style={styles.label}>Year *</Text>
+                        <Text style={[styles.label, { color: colors.text }]}>Year *</Text>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                             placeholder="2023"
-                            placeholderTextColor="#868e96"
+                            placeholderTextColor={colors.text + '80'}
                             value={year}
                             onChangeText={setYear}
                             keyboardType="numeric"
@@ -98,11 +145,11 @@ export default function AddBikeScreen() {
                         />
                     </View>
                     <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                        <Text style={styles.label}>Engine (cc)</Text>
+                        <Text style={[styles.label, { color: colors.text }]}>Engine (cc)</Text>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                             placeholder="350"
-                            placeholderTextColor="#868e96"
+                            placeholderTextColor={colors.text + '80'}
                             value={engineCc}
                             onChangeText={setEngineCc}
                             keyboardType="numeric"
@@ -111,22 +158,22 @@ export default function AddBikeScreen() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Nickname (optional)</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>Nickname (optional)</Text>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                         placeholder="e.g., My Bullet, Daily Rider"
-                        placeholderTextColor="#868e96"
+                        placeholderTextColor={colors.text + '80'}
                         value={nickname}
                         onChangeText={setNickname}
                     />
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Registration Number</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>Registration Number</Text>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                         placeholder="e.g., MH12AB1234"
-                        placeholderTextColor="#868e96"
+                        placeholderTextColor={colors.text + '80'}
                         value={registration}
                         onChangeText={setRegistration}
                         autoCapitalize="characters"
@@ -134,15 +181,15 @@ export default function AddBikeScreen() {
                 </View>
             </View>
 
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Maintenance Settings</Text>
+            <View style={[styles.section, { backgroundColor: colors.card }]}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Maintenance Settings</Text>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Current Odometer (km)</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>Current Odometer (km)</Text>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                         placeholder="0"
-                        placeholderTextColor="#868e96"
+                        placeholderTextColor={colors.text + '80'}
                         value={odometer}
                         onChangeText={setOdometer}
                         keyboardType="numeric"
@@ -150,21 +197,21 @@ export default function AddBikeScreen() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Oil Change Interval (km)</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>Oil Change Interval (km)</Text>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                         placeholder="2500"
-                        placeholderTextColor="#868e96"
+                        placeholderTextColor={colors.text + '80'}
                         value={oilInterval}
                         onChangeText={setOilInterval}
                         keyboardType="numeric"
                     />
-                    <Text style={styles.hint}>Recommended: 2500-3000 km</Text>
+                    <Text style={[styles.hint, { color: colors.text, opacity: 0.6 }]}>Recommended: 2500-3000 km</Text>
                 </View>
             </View>
 
             <TouchableOpacity
-                style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
+                style={[styles.saveButton, { backgroundColor: colors.primary }, isLoading && styles.saveButtonDisabled]}
                 onPress={handleSave}
                 disabled={isLoading}
             >
@@ -174,6 +221,8 @@ export default function AddBikeScreen() {
                     <Text style={styles.saveButtonText}>Add Bike</Text>
                 )}
             </TouchableOpacity>
+
+            <Text style={styles.localNote}>📱 Data saved locally on your device</Text>
         </ScrollView>
     );
 }
@@ -181,14 +230,12 @@ export default function AddBikeScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#1a1a2e',
     },
     content: {
         padding: 16,
         paddingBottom: 40,
     },
     section: {
-        backgroundColor: '#16213e',
         borderRadius: 16,
         padding: 20,
         marginBottom: 16,
@@ -196,7 +243,6 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#ffffff',
         marginBottom: 20,
     },
     inputGroup: {
@@ -204,29 +250,47 @@ const styles = StyleSheet.create({
     },
     row: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
     },
     label: {
         fontSize: 14,
-        fontWeight: '500',
-        color: '#adb5bd',
+        fontWeight: '600',
         marginBottom: 8,
     },
     input: {
-        backgroundColor: '#0f0f23',
-        borderRadius: 12,
-        padding: 16,
-        fontSize: 16,
-        color: '#ffffff',
         borderWidth: 1,
-        borderColor: '#2d3436',
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
+    },
+    imagePicker: {
+        height: 200,
+        borderRadius: 12,
+        marginBottom: 24,
+        overflow: 'hidden',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderStyle: 'dashed',
+    },
+    bikeImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    placeholderImage: {
+        alignItems: 'center',
+    },
+    placeholderText: {
+        marginTop: 8,
+        fontSize: 16,
+        fontWeight: '600',
     },
     hint: {
         fontSize: 12,
-        color: '#868e96',
         marginTop: 6,
     },
     saveButton: {
-        backgroundColor: '#4c6ef5',
         borderRadius: 12,
         padding: 18,
         alignItems: 'center',
@@ -239,5 +303,11 @@ const styles = StyleSheet.create({
         color: '#ffffff',
         fontSize: 18,
         fontWeight: 'bold',
+    },
+    localNote: {
+        fontSize: 12,
+        color: '#51cf66',
+        textAlign: 'center',
+        marginTop: 16,
     },
 });

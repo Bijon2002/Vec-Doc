@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useColorScheme } from 'react-native';
 import { useAuthStore, useAppStore } from '../store';
+import { Ionicons } from '@expo/vector-icons';
 
 // Screens (will be created)
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -19,6 +20,14 @@ import LogMaintenanceScreen from '../screens/maintenance/LogMaintenanceScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
 
+import RideTrackingScreen from '../screens/ride/RideTrackingScreen';
+import ServicesScreen from '../screens/services/ServicesScreen';
+import PartsMarketplaceScreen from '../screens/services/PartsMarketplaceScreen';
+import PrivacyPolicyScreen from '../screens/profile/PrivacyPolicyScreen';
+import HelpSupportScreen from '../screens/profile/HelpSupportScreen';
+import NotificationsScreen from '../screens/notifications/NotificationsScreen';
+import ChatScreen from '../screens/ai/ChatScreen';
+
 // Type definitions
 export type AuthStackParamList = {
     Login: undefined;
@@ -29,6 +38,7 @@ export type AuthStackParamList = {
 export type MainTabParamList = {
     Home: undefined;
     Bikes: undefined;
+    Chat: undefined;
     Documents: undefined;
     Maintenance: undefined;
     Profile: undefined;
@@ -41,6 +51,13 @@ export type RootStackParamList = {
     AddDocument: { bikeId: string };
     LogMaintenance: { bikeId: string };
     Settings: undefined;
+    RideTracking: undefined;
+    Services: undefined;
+    PartsMarketplace: undefined;
+    PrivacyPolicy: undefined;
+    HelpSupport: undefined;
+    Notifications: undefined;
+    Chat: undefined;
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -52,12 +69,12 @@ const VecDocLightTheme = {
     ...DefaultTheme,
     colors: {
         ...DefaultTheme.colors,
-        primary: '#4c6ef5',
-        background: '#f8f9fa',
-        card: '#ffffff',
-        text: '#212529',
-        border: '#dee2e6',
-        notification: '#ff6b6b',
+        primary: '#1a237e', // Dark Navy Blue
+        background: '#ffffff',
+        card: '#f5f5f5',
+        text: '#1a1a1a',
+        border: '#e0e0e0',
+        notification: '#c62828',
     },
 };
 
@@ -65,11 +82,11 @@ const VecDocDarkTheme = {
     ...DarkTheme,
     colors: {
         ...DarkTheme.colors,
-        primary: '#748ffc',
-        background: '#1a1a2e',
-        card: '#16213e',
-        text: '#f8f9fa',
-        border: '#2d3436',
+        primary: '#ffc107', // Amber/Gold
+        background: '#0d1b2a', // Deep Navy
+        card: '#1b263b', // Lighter Navy
+        text: '#e0e1dd',
+        border: '#415a77',
         notification: '#ff6b6b',
     },
 };
@@ -120,6 +137,27 @@ function MainTabNavigator() {
                     fontSize: 12,
                     fontWeight: '500',
                 },
+                tabBarIcon: ({ focused, color, size }) => {
+                    let iconName: keyof typeof Ionicons.glyphMap;
+
+                    if (route.name === 'Home') {
+                        iconName = focused ? 'home' : 'home-outline';
+                    } else if (route.name === 'Bikes') {
+                        iconName = focused ? 'bicycle' : 'bicycle-outline';
+                    } else if (route.name === 'Documents') {
+                        iconName = focused ? 'document-text' : 'document-text-outline';
+                    } else if (route.name === 'Maintenance') {
+                        iconName = focused ? 'build' : 'build-outline';
+                    } else if (route.name === 'Profile') {
+                        iconName = focused ? 'person' : 'person-outline';
+                    } else if (route.name === 'Chat') {
+                        iconName = focused ? 'sparkles' : 'sparkles-outline';
+                    } else {
+                        iconName = 'alert-circle';
+                    }
+
+                    return <Ionicons name={iconName} size={size} color={color} />;
+                },
             })}
         >
             <MainTab.Screen
@@ -131,6 +169,11 @@ function MainTabNavigator() {
                 name="Bikes"
                 component={BikesScreen}
                 options={{ tabBarLabel: 'My Bikes' }}
+            />
+            <MainTab.Screen
+                name="Chat"
+                component={ChatScreen}
+                options={{ tabBarLabel: 'Assistant' }}
             />
             <MainTab.Screen
                 name="Documents"
@@ -192,6 +235,36 @@ function RootNavigator() {
                 name="Settings"
                 component={SettingsScreen}
                 options={{ title: 'Settings' }}
+            />
+            <RootStack.Screen
+                name="RideTracking"
+                component={RideTrackingScreen}
+                options={{ title: 'Ride Tracker', presentation: 'fullScreenModal', headerShown: false }}
+            />
+            <RootStack.Screen
+                name="Services"
+                component={ServicesScreen}
+                options={{ title: 'Nearby Services' }}
+            />
+            <RootStack.Screen
+                name="PartsMarketplace"
+                component={PartsMarketplaceScreen}
+                options={{ title: 'Parts Marketplace', headerShown: false }}
+            />
+            <RootStack.Screen
+                name="PrivacyPolicy"
+                component={PrivacyPolicyScreen}
+                options={{ title: 'Privacy Policy' }}
+            />
+            <RootStack.Screen
+                name="HelpSupport"
+                component={HelpSupportScreen}
+                options={{ title: 'Help & Support' }}
+            />
+            <RootStack.Screen
+                name="Notifications"
+                component={NotificationsScreen}
+                options={{ title: 'Notifications' }}
             />
         </RootStack.Navigator>
     );

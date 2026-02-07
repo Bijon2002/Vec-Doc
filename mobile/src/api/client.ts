@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import { useAuthStore } from '../store';
 
 const BASE_URL = __DEV__
-    ? 'http://10.0.2.2:3000/api/v1'  // Android emulator
+    ? 'http://192.168.1.2:3000/api/v1'  // Your local network IP
     : 'https://api.vecdoc.app/api/v1';
 
 // Create axios instance
