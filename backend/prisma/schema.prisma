@@ -1,0 +1,454 @@
+// Prisma Schema for Vec-Doc
+// Vehicle Document & Maintenance Tracking System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MODULE A: USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id                      String    @id @default(uuid())
+  email                   String    @unique
+  phone                   String?   @unique
+  passwordHash            String    @map("password_hash")
+  fullName                String    @map("full_name")
+  profileImageUrl         String?   @map("profile_image_url")
+  isVerified              Boolean   @default(false) @map("is_verified")
+  preferredLanguage       String    @default("en") @map("preferred_language")
+  notificationPreferences Json      @default("{\"push\": true, \"sms\": false, \"email\": true}") @map("notification_preferences")
+  
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+  deletedAt               DateTime? @map("deleted_at")
+
+  // Relations
+  bikes                   Bike[]
+  documents               Document[]
+  notificationSettings    NotificationSettings?
+  notificationQueue       NotificationQueue[]
+  refreshTokens           RefreshToken[]
+
+  @@index([email])
+  @@index([phone])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ============================================
+// MODULE A: BIKE PROFILE
+// ============================================
+
+model Bike {
+  id                   String    @id @default(uuid())
+  userId               String    @map("user_id")
+  
+  // Basic Info
+  nickname             String?
+  brand                String
+  model                String
+  year                 Int
+  
+  // Technical Specs
+  engineCapacityCc     Int?      @map("engine_capacity_cc")
+  fuelType             FuelType  @default(PETROL) @map("fuel_type")
+  vehicleType          VehicleType @default(MOTORBIKE) @map("vehicle_type")
+  
+  // Registration
+  registrationNumber   String?   @map("registration_number")
+  vinNumber            String?   @map("vin_number")
+  
+  // Maintenance Settings
+  oilChangeIntervalKm  Int       @default(2500) @map("oil_change_interval_km")
+  lastOilChangeKm      Int       @default(0) @map("last_oil_change_km")
+  lastOilChangeDate    DateTime? @map("last_oil_change_date")
+  
+  // Distance Tracking
+  currentOdometerKm    Int       @default(0) @map("current_odometer_km")
+  isPrimary            Boolean   @default(false) @map("is_primary")
+  isActive             Boolean   @default(true) @map("is_active")
+  
+  // Metadata
+  imageUrl             String?   @map("image_url")
+  purchaseDate         DateTime? @map("purchase_date")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  deletedAt            DateTime? @map("deleted_at")
+
+  // Relations
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents            Document[]
+  maintenanceRecords   MaintenanceRecord[]
+  distanceRecords      DistanceRecord[]
+  maintenanceSchedules MaintenanceSchedule[]
+
+  @@index([userId])
+  @@index([userId, isActive])
+  @@map("bikes")
+}
+
+model BikeOwnershipHistory {
+  id           String   @id @default(uuid())
+  bikeId       String   @map("bike_id")
+  fromUserId   String?  @map("from_user_id")
+  toUserId     String?  @map("to_user_id")
+  transferType TransferType @map("transfer_type")
+  transferDate DateTime @default(now()) @map("transfer_date")
+  notes        String?
+
+  @@map("bike_ownership_history")
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  ELECTRIC
+  HYBRID
+  CNG
+}
+
+enum VehicleType {
+  MOTORBIKE
+  SCOOTER
+  CAR
+  AUTO_RICKSHAW
+  OTHER
+}
+
+enum TransferType {
+  SOLD
+  TRANSFERRED
+  GIFTED
+}
+
+// ============================================
+// MODULE B: DOCUMENT TRACKING
+// ============================================
+
+model Document {
+  id              String       @id @default(uuid())
+  bikeId          String       @map("bike_id")
+  userId          String       @map("user_id")
+  
+  documentType    DocumentType @map("document_type")
+  title           String
+  description     String?
+  
+  // Dates
+  issueDate       DateTime?    @map("issue_date")
+  expiryDate      DateTime?    @map("expiry_date")
+  
+  // File Storage
+  fileUrl         String?      @map("file_url")
+  fileType        String?      @map("file_type")
+  fileSizeBytes   Int?         @map("file_size_bytes")
+  thumbnailUrl    String?      @map("thumbnail_url")
+  
+  // OCR Data
+  ocrExtractedData Json?       @map("ocr_extracted_data")
+  ocrConfidence    Float?      @map("ocr_confidence")
+  
+  isVerified      Boolean      @default(false) @map("is_verified")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  deletedAt       DateTime?    @map("deleted_at")
+
+  // Relations
+  bike            Bike         @relation(fields: [bikeId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id])
+  alerts          DocumentAlert[]
+
+  @@index([bikeId])
+  @@index([expiryDate])
+  @@index([documentType, expiryDate])
+  @@map("documents")
+}
+
+model DocumentAlert {
+  id          String      @id @default(uuid())
+  documentId  String      @map("document_id")
+  userId      String      @map("user_id")
+  
+  alertType   String      @map("alert_type") // '30_day', '7_day', '1_day', 'expired'
+  scheduledAt DateTime    @map("scheduled_at")
+  sentAt      DateTime?   @map("sent_at")
+  status      AlertStatus @default(PENDING)
+  
+  retryCount  Int         @default(0) @map("retry_count")
+  lastError   String?     @map("last_error")
+  
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  document    Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledAt, status])
+  @@index([documentId])
+  @@map("document_alerts")
+}
+
+enum DocumentType {
+  INSURANCE
+  SMOKE_TEST
+  LICENSE
+  REGISTRATION
+  SERVICE_RECORD
+  OTHER
+}
+
+enum AlertStatus {
+  PENDING
+  SENT
+  FAILED
+  ACKNOWLEDGED
+}
+
+// ============================================
+// MODULE C: MAINTENANCE & OIL CHANGE
+// ============================================
+
+model MaintenanceRecord {
+  id                    String   @id @default(uuid())
+  bikeId                String   @map("bike_id")
+  
+  maintenanceType       String   @map("maintenance_type")
+  odometerAtMaintenance Int      @map("odometer_at_maintenance")
+  
+  // Cost
+  costAmount            Decimal? @map("cost_amount") @db.Decimal(10, 2)
+  costCurrency          String   @default("INR") @map("cost_currency")
+  
+  // Service details
+  serviceCenterName     String?  @map("service_center_name")
+  serviceCenterLocation String?  @map("service_center_location")
+  technicianNotes       String?  @map("technician_notes")
+  
+  // Parts used
+  partsUsed             Json?    @map("parts_used")
+  
+  // Files
+  receiptUrl            String?  @map("receipt_url")
+  
+  performedAt           DateTime @default(now()) @map("performed_at")
+  nextDueKm             Int?     @map("next_due_km")
+  nextDueDate           DateTime? @map("next_due_date")
+  
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  // Relations
+  bike                  Bike     @relation(fields: [bikeId], references: [id], onDelete: Cascade)
+
+  @@index([bikeId, performedAt(sort: Desc)])
+  @@index([bikeId, maintenanceType])
+  @@map("maintenance_records")
+}
+
+model MaintenanceSchedule {
+  id              String  @id @default(uuid())
+  bikeId          String  @map("bike_id")
+  
+  maintenanceType String  @map("maintenance_type")
+  intervalKm      Int?    @map("interval_km")
+  intervalDays    Int?    @map("interval_days")
+  
+  isEnabled       Boolean @default(true) @map("is_enabled")
+
+  // Relations
+  bike            Bike    @relation(fields: [bikeId], references: [id], onDelete: Cascade)
+
+  @@unique([bikeId, maintenanceType])
+  @@map("maintenance_schedules")
+}
+
+// ============================================
+// MODULE D: DISTANCE TRACKING
+// ============================================
+
+model DistanceRecord {
+  id            String      @id @default(uuid())
+  bikeId        String      @map("bike_id")
+  userId        String      @map("user_id")
+  
+  date          DateTime    @db.Date
+  distanceKm    Decimal     @map("distance_km") @db.Decimal(10, 2)
+  
+  recordType    RecordType  @default(DAILY) @map("record_type")
+  
+  // Trip details
+  startTime     DateTime?   @map("start_time")
+  endTime       DateTime?   @map("end_time")
+  
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  // Relations  
+  bike          Bike        @relation(fields: [bikeId], references: [id], onDelete: Cascade)
+
+  @@index([bikeId, date])
+  @@map("distance_records")
+}
+
+enum RecordType {
+  TRIP
+  DAILY
+  MONTHLY
+}
+
+// ============================================
+// MODULE E: NOTIFICATIONS
+// ============================================
+
+model NotificationQueue {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  
+  title           String
+  body            String
+  data            Json?
+  
+  category        String
+  priority        NotificationPriority @default(NORMAL)
+  
+  scheduledAt     DateTime  @default(now()) @map("scheduled_at")
+  expiresAt       DateTime? @map("expires_at")
+  
+  status          NotificationStatus @default(PENDING)
+  sentAt          DateTime? @map("sent_at")
+  
+  deliveryChannel String?   @map("delivery_channel")
+  fcmMessageId    String?   @map("fcm_message_id")
+  errorMessage    String?   @map("error_message")
+  retryCount      Int       @default(0) @map("retry_count")
+  
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id])
+
+  @@index([scheduledAt, status])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("notification_queue")
+}
+
+model NotificationSettings {
+  userId              String   @id @map("user_id")
+  
+  pushEnabled         Boolean  @default(true) @map("push_enabled")
+  emailEnabled        Boolean  @default(true) @map("email_enabled")
+  smsEnabled          Boolean  @default(false) @map("sms_enabled")
+  
+  quietHoursStart     String?  @map("quiet_hours_start")
+  quietHoursEnd       String?  @map("quiet_hours_end")
+  
+  documentAlerts      Boolean  @default(true) @map("document_alerts")
+  maintenanceAlerts   Boolean  @default(true) @map("maintenance_alerts")
+  promotional         Boolean  @default(false)
+  
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+// ============================================
+// MODULE F: QUICK SHOP
+// ============================================
+
+model PartCategory {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  parentId    String?   @map("parent_id")
+  imageUrl    String?   @map("image_url")
+  
+  synonyms    String[]
+  searchBoost Decimal   @default(1.0) @map("search_boost") @db.Decimal(3, 2)
+
+  // Self-relation for hierarchy
+  parent      PartCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    PartCategory[] @relation("CategoryHierarchy")
+  
+  compatibility BikePartCompatibility[]
+
+  @@map("part_categories")
+}
+
+model BikePartCompatibility {
+  id                    String   @id @default(uuid())
+  
+  brand                 String?
+  model                 String?
+  yearFrom              Int?     @map("year_from")
+  yearTo                Int?     @map("year_to")
+  
+  partCategoryId        String   @map("part_category_id")
+  oemPartNumber         String?  @map("oem_part_number")
+  compatiblePartNumbers String[] @map("compatible_part_numbers")
+  
+  notes                 String?
+
+  // Relations
+  partCategory          PartCategory @relation(fields: [partCategoryId], references: [id])
+
+  @@index([brand, model])
+  @@map("bike_part_compatibility")
+}
+
+// ============================================
+// MODULE H: RAG CHATBOT KNOWLEDGE
+// ============================================
+
+model KnowledgeChunk {
+  id          String   @id @default(uuid())
+  
+  content     String
+  // Note: pgvector extension needed for embedding column
+  // embedding   Unsupported("vector(1536)")
+  
+  sourceType  String   @map("source_type")
+  bikeBrand   String?  @map("bike_brand")
+  bikeModel   String?  @map("bike_model")
+  topic       String?
+  language    String   @default("en")
+  
+  sourceUrl   String?  @map("source_url")
+  sourceTitle String?  @map("source_title")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("knowledge_chunks")
+}
