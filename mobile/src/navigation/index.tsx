@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme, LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useColorScheme } from 'react-native';
@@ -270,6 +270,37 @@ function RootNavigator() {
     );
 }
 
+const linking: LinkingOptions<any> = {
+    enabled: true,
+    prefixes: [],
+    config: {
+        screens: {
+            // Root Stack Screens
+            Main: {
+                screens: {
+                    Home: 'home',
+                    Bikes: 'bikes',
+                    Chat: 'chat',
+                    Documents: 'documents',
+                    Maintenance: 'maintenance',
+                    Profile: 'profile',
+                },
+            },
+            BikeDetail: 'bike/:bikeId',
+            AddBike: 'add-bike',
+            AddDocument: 'add-document/:bikeId',
+            LogMaintenance: 'log-maintenance/:bikeId',
+            Settings: 'settings',
+            RideTracking: 'ride-tracking',
+            Notifications: 'notifications',
+
+            // Auth Stack Screens (if rendered)
+            Login: 'login',
+            Register: 'register',
+        },
+    },
+};
+
 export default function Navigation() {
     const systemColorScheme = useColorScheme();
     const { theme } = useAppStore();
@@ -283,6 +314,7 @@ export default function Navigation() {
 
     return (
         <NavigationContainer
+            linking={linking}
             theme={appliedTheme === 'dark' ? VecDocDarkTheme : VecDocLightTheme}
         >
             {isAuthenticated ? <RootNavigator /> : <AuthNavigator />}
