@@ -9,8 +9,8 @@ import {
     Platform,
     ScrollView,
     ActivityIndicator,
-    Alert,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthStore } from '../../store';
@@ -29,28 +29,62 @@ export default function RegisterScreen() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const validateEmail = (email: string) => {
+        return /\S+@\S+\.\S+/.test(email);
+    };
+
     const handleRegister = async () => {
         if (!fullName.trim() || !email.trim() || !password.trim()) {
-            Alert.alert('Error', 'Please fill in all required fields');
+            Toast.show({
+                type: 'error',
+                text1: 'Required Fields',
+                text2: 'Please fill in all required fields marked with *'
+            });
             return;
         }
 
-        if (password !== confirmPassword) {
-            Alert.alert('Error', 'Passwords do not match');
+        if (!validateEmail(email.trim())) {
+            Toast.show({
+                type: 'error',
+                text1: 'Invalid Email',
+                text2: 'Please enter a valid email address'
+            });
             return;
         }
 
         if (password.length < 6) {
-            Alert.alert('Error', 'Password must be at least 6 characters');
+            Toast.show({
+                type: 'error',
+                text1: 'Weak Password',
+                text2: 'Password must be at least 6 characters'
+            });
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            Toast.show({
+                type: 'error',
+                text1: 'Mismatch',
+                text2: 'Passwords do not match'
+            });
             return;
         }
 
         setLoading(true);
         try {
             await register(email, password, fullName);
+            Toast.show({
+                type: 'success',
+                text1: 'Success',
+                text2: 'Account created! Welcome to Vec-Doc.'
+            });
             // Navigation is handled automatically by auth state change
         } catch (error: any) {
-            Alert.alert('Registration Failed', error.message || 'Something went wrong');
+            Toast.show({
+                type: 'error',
+                text1: 'Registration Failed',
+                text2: error.message || 'Something went wrong'
+            });
         } finally {
             setLoading(false);
         }
@@ -196,11 +230,16 @@ const styles = StyleSheet.create({
     formContainer: {
         borderRadius: 20,
         padding: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
         elevation: 5,
+        ...(Platform.OS === 'web'
+            ? { boxShadow: '0px 4px 6px rgba(0,0,0,0.1)' }
+            : {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 6,
+            }
+        ),
     },
     title: {
         fontSize: 24,
@@ -240,11 +279,16 @@ const styles = StyleSheet.create({
         padding: 16,
         alignItems: 'center',
         marginTop: 8,
-        shadowColor: '#4c6ef5',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
         elevation: 5,
+        ...(Platform.OS === 'web' 
+            ? { boxShadow: '0px 4px 8px rgba(76, 110, 245, 0.3)' } 
+            : {
+                shadowColor: '#4c6ef5',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+            }
+        ),
     },
     buttonDisabled: {
         opacity: 0.7,

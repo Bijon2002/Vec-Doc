@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, ScrollView, ActivityIndicator, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, ScrollView, ActivityIndicator, Linking, Platform } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ShopRepo from '../../database/shopRepository';
@@ -44,7 +45,11 @@ export default function PartsMarketplaceScreen() {
         if (phone) {
             Linking.openURL(`tel:${phone}`);
         } else {
-            Alert.alert('Info', 'Phone number not available');
+            Toast.show({
+                type: 'info',
+                text1: 'Info',
+                text2: 'Phone number not available'
+            });
         }
     };
 
@@ -73,7 +78,14 @@ export default function PartsMarketplaceScreen() {
                         data={parts}
                         keyExtractor={item => item.id}
                         renderItem={({ item }) => (
-                            <TouchableOpacity style={[styles.partItem, { backgroundColor: colors.card, shadowColor: colors.border }]} onPress={() => handleSelectPart(item)}>
+                            <TouchableOpacity 
+                                style={[
+                                    styles.partItem, 
+                                    { backgroundColor: colors.card },
+                                    Platform.OS !== 'web' && { shadowColor: colors.border }
+                                ]} 
+                                onPress={() => handleSelectPart(item)}
+                            >
                                 <View style={[styles.partIconBg, { backgroundColor: colors.primary + '20' }]}>
                                     <Ionicons name="cog" size={24} color={colors.primary} />
                                 </View>
@@ -186,11 +198,16 @@ const styles = StyleSheet.create({
         padding: 16,
         borderRadius: 12,
         marginBottom: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
         elevation: 2,
+        ...(Platform.OS === 'web' 
+            ? { boxShadow: '0px 1px 2px rgba(0,0,0,0.05)' } 
+            : {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.05,
+                shadowRadius: 2,
+            }
+        ),
     },
     partIconBg: {
         width: 40,
@@ -251,11 +268,16 @@ const styles = StyleSheet.create({
         padding: 16,
         borderRadius: 12,
         marginBottom: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
         elevation: 2,
+        ...(Platform.OS === 'web' 
+            ? { boxShadow: '0px 1px 2px rgba(0,0,0,0.05)' } 
+            : {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.05,
+                shadowRadius: 2,
+            }
+        ),
         borderLeftWidth: 4,
     },
     shopInfo: {

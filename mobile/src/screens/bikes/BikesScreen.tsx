@@ -6,6 +6,7 @@ import {
     FlatList,
     TouchableOpacity,
     RefreshControl,
+    Image,
 } from 'react-native';
 import { useNavigation, useFocusEffect, useTheme } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -53,7 +54,11 @@ export default function BikesScreen() {
         >
             <View style={styles.cardHeader}>
                 <View style={styles.cardHeaderLeft}>
-                    <Text style={styles.bikeEmoji}>🏍️</Text>
+                    {item.imageUri && !item.imageUri.startsWith('blob:') ? (
+                        <Image source={{ uri: item.imageUri }} style={styles.cardBikeImage} />
+                    ) : (
+                        <Text style={styles.bikeEmoji}>🏍️</Text>
+                    )}
                     <View>
                         <Text style={[styles.bikeName, { color: colors.text }]}>
                             {item.nickname || `${item.brand} ${item.model}`}
@@ -198,6 +203,12 @@ const styles = StyleSheet.create({
     },
     bikeEmoji: {
         fontSize: 36,
+        marginRight: 12,
+    },
+    cardBikeImage: {
+        width: 60,
+        height: 60,
+        borderRadius: 8,
         marginRight: 12,
     },
     bikeName: {

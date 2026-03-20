@@ -2,13 +2,13 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import { useAuthStore } from '../store';
 
 const BASE_URL = __DEV__
-    ? 'http://192.168.1.2:3000/api/v1'  // Your local network IP
+    ? 'http://localhost:3000/api/v1'  // Localhost for web/local development
     : 'https://api.vecdoc.app/api/v1';
 
 // Create axios instance
 export const api: AxiosInstance = axios.create({
     baseURL: BASE_URL,
-    timeout: 15000,
+    timeout: 30000,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -186,4 +186,22 @@ export const notificationsApi = {
     }>) => api.put('/notifications/settings', data),
     getHistory: (page?: number) => api.get('/notifications', { params: { page } }),
     registerToken: (token: string) => api.post('/notifications/register-token', { token }),
+};
+
+// AI API (NVIDIA Cloud NIM)
+export const aiApi = {
+    chat: (query: string, context?: string) =>
+        api.post('/ai/maintenance/chat', { query, context }),
+    
+    identifyPart: (imageUrl: string) =>
+        api.post('/ai/parts/identify', { imageUrl }),
+    
+    generateVoice: (text: string) =>
+        api.post('/ai/voice/generate', { text }),
+
+    triggerDocOCR: (id: string) =>
+        api.post(`/ai/documents/${id}/ocr`),
+
+    getPetrolAlerts: () =>
+        api.get('/ai/petrol-alerts'),
 };

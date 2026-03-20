@@ -15,6 +15,7 @@ import bikeRoutes from './routes/bike.routes.js';
 import documentRoutes from './routes/document.routes.js';
 import maintenanceRoutes from './routes/maintenance.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 
 // Validate config before starting
 validateConfig();
@@ -59,6 +60,7 @@ app.use('/api/v1/bikes', bikeRoutes);
 app.use('/api/v1/documents', documentRoutes);
 app.use('/api/v1/maintenance', maintenanceRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/ai', aiRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {

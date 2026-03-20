@@ -8,6 +8,7 @@ import {
     Alert,
     Image,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
@@ -42,22 +43,38 @@ export default function ProfileScreen() {
     const handleUpdateProfileImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission needed', 'Please grant permission to access your photos');
+            Toast.show({
+                type: 'error',
+                text1: 'Permission Denied',
+                text2: 'Please grant permission to access your photos'
+            });
             return;
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: 'images',
             allowsEditing: true,
             aspect: [1, 1],
             quality: 0.5,
+            base64: true,
         });
 
         if (!result.canceled) {
             try {
-                await updateProfile({ profileImageUri: result.assets[0].uri });
+                const asset = result.assets[0];
+                const imageUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+                await updateProfile({ profileImageUri: imageUri });
+                Toast.show({
+                    type: 'success',
+                    text1: 'Profile Updated',
+                    text2: 'Your profile picture has been updated.'
+                });
             } catch (error) {
-                Alert.alert('Error', 'Failed to update profile image');
+                Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: 'Failed to update profile image'
+                });
             }
         }
     };
@@ -67,7 +84,7 @@ export default function ProfileScreen() {
             {/* Header */}
             <View style={[styles.header, { backgroundColor: colors.card }]}>
                 <TouchableOpacity onPress={handleUpdateProfileImage} style={styles.avatarContainer}>
-                    {user?.profileImageUri ? (
+                    {user?.profileImageUri && !user.profileImageUri.startsWith('blob:') ? (
                         <Image source={{ uri: user.profileImageUri }} style={[styles.avatarImage, { borderColor: colors.background }]} />
                     ) : (
                         <View style={[styles.avatar, { backgroundColor: colors.primary, borderColor: colors.background }]}>

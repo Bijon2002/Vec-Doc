@@ -7,9 +7,9 @@ import {
     TouchableOpacity,
     ScrollView,
     Image,
-    Alert,
     ActivityIndicator,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute, useTheme, RouteProp } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../../navigation';
@@ -38,48 +38,85 @@ export default function AddDocumentScreen() {
         // Request permissions
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission needed', 'Please grant permission to access your photos');
+            Toast.show({
+                type: 'error',
+                text1: 'Permission Denied',
+                text2: 'Please grant permission to access your photos'
+            });
             return;
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: 'images',
             allowsEditing: true,
             aspect: [4, 3],
-            quality: 0.8,
+            quality: 0.7,
+            base64: true,
         });
 
         if (!result.canceled) {
-            setImageUri(result.assets[0].uri);
+            const asset = result.assets[0];
+            if (asset.base64) {
+                setImageUri(`data:image/jpeg;base64,${asset.base64}`);
+            } else {
+                setImageUri(asset.uri);
+            }
         }
     };
 
     const takePhoto = async () => {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission needed', 'Please grant permission to use the camera');
+            Toast.show({
+                type: 'error',
+                text1: 'Permission Denied',
+                text2: 'Please grant permission to use the camera'
+            });
             return;
         }
 
         const result = await ImagePicker.launchCameraAsync({
             allowsEditing: true,
             aspect: [4, 3],
-            quality: 0.8,
+            quality: 0.7,
+            base64: true,
         });
 
         if (!result.canceled) {
-            setImageUri(result.assets[0].uri);
+            const asset = result.assets[0];
+            if (asset.base64) {
+                setImageUri(`data:image/jpeg;base64,${asset.base64}`);
+            } else {
+                setImageUri(asset.uri);
+            }
         }
     };
 
     const handleSave = async () => {
         if (!title.trim()) {
-            Alert.alert('Error', 'Please enter a document title');
+            Toast.show({
+                type: 'error',
+                text1: 'Required Field',
+                text2: 'Please enter a document title'
+            });
+            return;
+        }
+
+        if (expiryDate && !/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) {
+            Toast.show({
+                type: 'error',
+                text1: 'Invalid Date',
+                text2: 'Please enter date in YYYY-MM-DD format'
+            });
             return;
         }
 
         if (!imageUri) {
-            Alert.alert('Error', 'Please attach a document image');
+            Toast.show({
+                type: 'error',
+                text1: 'Missing Attachment',
+                text2: 'Please attach a document image'
+            });
             return;
         }
 
@@ -98,11 +135,18 @@ export default function AddDocumentScreen() {
                 await NotificationService.scheduleDocumentExpiryReminder(title.trim(), expiryDate);
             }
 
-            Alert.alert('Success', 'Document added and reminder set!', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-            ]);
+            Toast.show({
+                type: 'success',
+                text1: 'Document Saved!',
+                text2: 'Your document has been added successfully.'
+            });
+            navigation.goBack();
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to save document');
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: error.message || 'Failed to save document'
+            });
         } finally {
             setLoading(false);
         }

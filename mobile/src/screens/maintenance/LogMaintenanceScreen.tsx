@@ -6,10 +6,10 @@ import {
     TextInput,
     TouchableOpacity,
     ScrollView,
-    Alert,
     ActivityIndicator,
     Switch,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute, useTheme, RouteProp } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { RootStackParamList } from '../../navigation';
@@ -44,7 +44,11 @@ export default function LogMaintenanceScreen() {
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission Denied', 'Permission to access location was denied');
+                Toast.show({
+                    type: 'error',
+                    text1: 'Permission Denied',
+                    text2: 'Permission to access location was denied'
+                });
                 return;
             }
 
@@ -53,9 +57,17 @@ export default function LogMaintenanceScreen() {
                 lat: currentLoc.coords.latitude,
                 lng: currentLoc.coords.longitude
             });
-            Alert.alert('Success', 'Location tagged successfully!');
+            Toast.show({
+                type: 'success',
+                text1: 'Location Tagged',
+                text2: 'Service location captured successfully!'
+            });
         } catch (error) {
-            Alert.alert('Error', 'Failed to get location');
+            Toast.show({
+                type: 'error',
+                text1: 'Location Error',
+                text2: 'Failed to capture service location'
+            });
         } finally {
             setLocationLoading(false);
         }
@@ -63,12 +75,20 @@ export default function LogMaintenanceScreen() {
 
     const handleSave = async () => {
         if (!title.trim()) {
-            Alert.alert('Error', 'Please enter a title (e.g., 2nd Service)');
+            Toast.show({
+                type: 'error',
+                text1: 'Required Field',
+                text2: 'Please enter a title (e.g., 2nd Service)'
+            });
             return;
         }
-
+    
         if (!odometer) {
-            Alert.alert('Error', 'Please enter current odometer reading');
+            Toast.show({
+                type: 'error',
+                text1: 'Required Field',
+                text2: 'Please enter current odometer reading'
+            });
             return;
         }
 
@@ -119,12 +139,22 @@ export default function LogMaintenanceScreen() {
             if (bike) {
                 await NotificationService.scheduleMaintenanceReminder(bike.nickname || 'Bike', date);
             }
-
-            Alert.alert('Success', 'Maintenance logged and reminder set!', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-            ]);
+    
+            Toast.show({
+                type: 'success',
+                text1: 'Success',
+                text2: 'Maintenance logged and reminder set!'
+            });
+            
+            setTimeout(() => {
+                navigation.goBack();
+            }, 1500);
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to save log');
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: error.message || 'Failed to save log'
+            });
         } finally {
             setLoading(false);
         }

@@ -28,66 +28,70 @@ interface AuthState {
     setTokens: (accessToken: string | null, refreshToken: string | null) => void;
 }
 
-export const useAuthStore = create<AuthState>()((set, get) => ({
-    user: null,
-    isAuthenticated: false,
-    isLoading: false,
-    accessToken: null,
-    refreshToken: null,
+export const useAuthStore = create<AuthState>()(
+    persist(
+        (set, get) => ({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            accessToken: null,
+            refreshToken: null,
 
-    login: async (email: string, password: string) => {
-        set({ isLoading: true });
-        try {
-            const user = await UserRepo.loginUser({ email, password });
-            set({ user, isAuthenticated: true, isLoading: false });
-            // Save user id to persist login
-            await AsyncStorage.setItem('userId', user.id);
-        } catch (error) {
-            set({ isLoading: false });
-            throw error;
+            login: async (email: string, password: string) => {
+                set({ isLoading: true });
+                try {
+                    const user = await UserRepo.loginUser({ email, password });
+                    set({ user, isAuthenticated: true, isLoading: false });
+                    // Tokens will be null here until we sync with backend, but persist will handle whatever we set
+                } catch (error) {
+                    set({ isLoading: false });
+                    throw error;
+                }
+            },
+
+            register: async (email: string, password: string, fullName: string) => {
+                set({ isLoading: true });
+                try {
+                    const user = await UserRepo.createUser({ email, password, fullName });
+                    set({ user, isAuthenticated: true, isLoading: false });
+                } catch (error) {
+                    set({ isLoading: false });
+                    throw error;
+                }
+            },
+
+            logout: () => {
+                set({ user: null, isAuthenticated: false, accessToken: null, refreshToken: null });
+            },
+
+            setUser: (user) => set({ user, isAuthenticated: !!user }),
+            setLoading: (isLoading) => set({ isLoading }),
+            setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
+
+            updateProfile: async (updates: Partial<UserRepo.User>) => {
+                set({ isLoading: true });
+                try {
+                    const currentUser = get().user;
+                    if (!currentUser) throw new Error('No user logged in');
+
+                    const updatedUser = await UserRepo.updateUser(currentUser.id, updates);
+                    if (updatedUser) {
+                        set({ user: updatedUser, isLoading: false });
+                    } else {
+                        set({ isLoading: false });
+                    }
+                } catch (error) {
+                    set({ isLoading: false });
+                    throw error;
+                }
+            },
+        }),
+        {
+            name: 'auth-storage',
+            storage: createJSONStorage(() => AsyncStorage),
         }
-    },
-
-    register: async (email: string, password: string, fullName: string) => {
-        set({ isLoading: true });
-        try {
-            const user = await UserRepo.createUser({ email, password, fullName });
-            set({ user, isAuthenticated: true, isLoading: false });
-            // Save user id to persist login
-            await AsyncStorage.setItem('userId', user.id);
-        } catch (error) {
-            set({ isLoading: false });
-            throw error;
-        }
-    },
-
-    logout: () => {
-        AsyncStorage.removeItem('userId');
-        set({ user: null, isAuthenticated: false, accessToken: null, refreshToken: null });
-    },
-
-    setUser: (user) => set({ user, isAuthenticated: !!user }),
-    setLoading: (isLoading) => set({ isLoading }),
-    setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
-
-    updateProfile: async (updates: Partial<UserRepo.User>) => {
-        set({ isLoading: true });
-        try {
-            const currentUser = get().user;
-            if (!currentUser) throw new Error('No user logged in');
-
-            const updatedUser = await UserRepo.updateUser(currentUser.id, updates);
-            if (updatedUser) {
-                set({ user: updatedUser, isLoading: false });
-            } else {
-                set({ isLoading: false });
-            }
-        } catch (error) {
-            set({ isLoading: false });
-            throw error;
-        }
-    },
-}));
+    )
+);
 
 // Initialize auth state from storage
 export async function initializeAuth(): Promise<void> {
@@ -231,6 +235,7 @@ interface AppState {
     customAiUrl: string | null;
     aiProvider: 'gemini' | 'huggingface' | 'custom' | 'mock';
     huggingFaceApiKey: string | null;
+    petrolQrUri: string | null;
 
     setOnboarded: (value: boolean) => void;
     setTheme: (theme: 'light' | 'dark' | 'system') => void;
@@ -239,6 +244,7 @@ interface AppState {
     setCustomAiUrl: (url: string | null) => void;
     setAiProvider: (provider: 'gemini' | 'huggingface' | 'custom' | 'mock') => void;
     setHuggingFaceApiKey: (key: string | null) => void;
+    setPetrolQrUri: (uri: string | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -251,6 +257,7 @@ export const useAppStore = create<AppState>()(
             customAiUrl: null,
             aiProvider: 'gemini', // Default to Gemini (or mock if no key)
             huggingFaceApiKey: null,
+            petrolQrUri: null,
 
             setOnboarded: (isOnboarded) => set({ isOnboarded }),
             setTheme: (theme) => set({ theme }),
@@ -259,6 +266,7 @@ export const useAppStore = create<AppState>()(
             setCustomAiUrl: (customAiUrl) => set({ customAiUrl }),
             setAiProvider: (aiProvider) => set({ aiProvider }),
             setHuggingFaceApiKey: (huggingFaceApiKey) => set({ huggingFaceApiKey }),
+            setPetrolQrUri: (petrolQrUri) => set({ petrolQrUri }),
         }),
         {
             name: 'app-storage',

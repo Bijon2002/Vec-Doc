@@ -122,7 +122,11 @@ export default function DocumentsScreen() {
                 onLongPress={() => handleDelete(item.id)}
             >
                 <View style={[styles.docIconContainer, { backgroundColor: colors.background }]}>
-                    <Text style={styles.docIcon}>📄</Text>
+                    {item.fileUri && !item.fileUri.startsWith('blob:') ? (
+                        <Image source={{ uri: item.fileUri }} style={styles.thumbnail} />
+                    ) : (
+                        <Text style={styles.docIcon}>📄</Text>
+                    )}
                 </View>
 
                 <View style={styles.docContent}>
@@ -244,6 +248,11 @@ const styles = StyleSheet.create({
     },
     docIcon: {
         fontSize: 24,
+    },
+    thumbnail: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
     },
     docContent: {
         flex: 1,

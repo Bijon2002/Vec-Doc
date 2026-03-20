@@ -7,7 +7,10 @@ import {
     Alert,
     ActivityIndicator,
     Vibration,
+    ScrollView,
+    Platform,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useBikeStore, useAppStore } from '../../store';
@@ -67,7 +70,11 @@ export default function RideTrackingScreen() {
     const startTracking = async () => {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'Need location permission to track ride');
+            Toast.show({
+                type: 'error',
+                text1: 'Permission Denied',
+                text2: 'Need location permission to track ride'
+            });
             return;
         }
 
@@ -115,7 +122,11 @@ export default function RideTrackingScreen() {
 
     const stopTracking = () => {
         if (locationSubscription) {
-            locationSubscription.remove();
+            try {
+                locationSubscription.remove();
+            } catch (error) {
+                console.warn('Failed to remove location subscription:', error);
+            }
             setLocationSubscription(null);
         }
         if (timerRef.current) {
@@ -131,7 +142,11 @@ export default function RideTrackingScreen() {
         Vibration.vibrate(500);
 
         if (distance < 0.1) {
-            Alert.alert('Ride too short', 'Distance tracked is negligible. Discarding ride.');
+            Toast.show({
+                type: 'info',
+                text1: 'Ride Discarded',
+                text2: 'Distance tracked is too short (less than 100m).'
+            });
             return;
         }
 
@@ -150,12 +165,20 @@ export default function RideTrackingScreen() {
                                 await BikeRepo.updateBike(selectedBikeId, {
                                     currentOdometerKm: newOdometer
                                 });
-                                updateBike(bike.id, { currentOdometerKm: newOdometer });
-                                Alert.alert('Success', 'Bike odometer updated!');
+                                 updateBike(bike.id, { currentOdometerKm: newOdometer });
+                                Toast.show({
+                                    type: 'success',
+                                    text1: 'Odometer Updated',
+                                    text2: `Ride of ${distance.toFixed(2)}km recorded!`
+                                });
                                 navigation.goBack();
                             }
                         } else {
-                            Alert.alert('Error', 'No bike selected');
+                            Toast.show({
+                                type: 'error',
+                                text1: 'Error',
+                                text2: 'No bike selected'
+                            });
                         }
                     }
                 }
@@ -344,10 +367,16 @@ const styles = StyleSheet.create({
         borderRadius: 80,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
         elevation: 10,
+        ...(Platform.OS === 'web' 
+            ? { boxShadow: '0px 10px 20px rgba(0,0,0,0.5)' } 
+            : {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.5,
+                shadowRadius: 20,
+            }
+        ),
     },
     startButtonText: {
         color: '#ffffff',
@@ -368,10 +397,16 @@ const styles = StyleSheet.create({
         borderRadius: 80,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
         elevation: 10,
+        ...(Platform.OS === 'web' 
+            ? { boxShadow: '0px 10px 20px rgba(0,0,0,0.5)' } 
+            : {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.5,
+                shadowRadius: 20,
+            }
+        ),
     },
     stopButtonText: {
         color: '#ffffff',

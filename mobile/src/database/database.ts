@@ -1,13 +1,70 @@
 import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 
 let db: SQLite.SQLiteDatabase | null = null;
+let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
     if (db) return db;
+    if (dbPromise) return dbPromise;
 
-    db = await SQLite.openDatabaseAsync('vecdoc.db');
-    await initializeDatabase(db);
-    return db;
+    dbPromise = (async () => {
+        const dbName = 'vecdoc.db';
+        
+        const openWithRetry = async (name: string, retries = 2): Promise<SQLite.SQLiteDatabase> => {
+            try {
+                const database = await SQLite.openDatabaseAsync(name);
+                return database;
+            } catch (error) {
+                if (retries > 0 && Platform.OS === 'web') {
+                    console.warn(`Database open failed, retrying in 500ms... (${retries} left)`);
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    return openWithRetry(name, retries - 1);
+                }
+                throw error;
+            }
+        };
+
+        try {
+            db = await openWithRetry(dbName);
+            await initializeDatabase(db);
+            return db;
+        } catch (error) {
+            if (Platform.OS === 'web') {
+                console.error('Failed to open OPFS database on web, falling back to in-memory.', error);
+                try {
+                    db = await SQLite.openDatabaseAsync(':memory:');
+                    await initializeDatabase(db);
+                    return db;
+                } catch (fallbackError) {
+                    console.error('In-memory fallback failed. Using mock database.', fallbackError);
+                    // Return a "Safe" mock database so the UI doesn't crash
+                    const mockDb = {
+                        execAsync: async () => {},
+                        runAsync: async () => ({ lastInsertRowId: 0, changes: 0 }),
+                        getFirstAsync: async () => null,
+                        getAllAsync: async () => [],
+                        getAllFirstAsync: async () => [], // Some versions use this
+                        closeAsync: async () => {},
+                        prepareAsync: async () => ({ 
+                            executeAsync: async () => ({
+                                getFirstAsync: async () => null,
+                                getAllAsync: async () => [],
+                            }), 
+                            finalizeAsync: async () => {} 
+                        }),
+                    } as unknown as SQLite.SQLiteDatabase;
+                    db = mockDb;
+                    dbPromise = Promise.resolve(db);
+                    return db;
+                }
+            }
+            dbPromise = null;
+            throw error;
+        }
+    })();
+
+    return dbPromise;
 }
 
 async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void> {

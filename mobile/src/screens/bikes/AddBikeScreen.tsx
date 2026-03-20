@@ -7,9 +7,9 @@ import {
     StyleSheet,
     ScrollView,
     ActivityIndicator,
-    Alert,
     Image,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore, useBikeStore } from '../../store';
@@ -33,30 +33,68 @@ export default function AddBikeScreen() {
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission needed', 'Please grant permission to access your photos');
+            Toast.show({
+                type: 'error',
+                text1: 'Permission Denied',
+                text2: 'Please grant permission to access your photos'
+            });
             return;
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: 'images',
             allowsEditing: true,
             aspect: [4, 3],
-            quality: 0.8,
+            quality: 0.7,
+            base64: true,
         });
 
         if (!result.canceled) {
-            setImageUri(result.assets[0].uri);
+            const asset = result.assets[0];
+            if (asset.base64) {
+                setImageUri(`data:image/jpeg;base64,${asset.base64}`);
+            } else {
+                setImageUri(asset.uri);
+            }
         }
     };
 
     const handleSave = async () => {
         if (!brand.trim() || !model.trim() || !year.trim()) {
-            Alert.alert('Error', 'Please fill in brand, model, and year');
+            Toast.show({
+                type: 'error',
+                text1: 'Required Fields',
+                text2: 'Please fill in brand, model, and year'
+            });
+            return;
+        }
+
+        const currentYear = new Date().getFullYear();
+        const bikeYear = parseInt(year);
+        if (isNaN(bikeYear) || bikeYear < 1900 || bikeYear > currentYear + 1) {
+            Toast.show({
+                type: 'error',
+                text1: 'Invalid Year',
+                text2: `Please enter a valid year between 1900 and ${currentYear + 1}`
+            });
+            return;
+        }
+
+        if (odometer && isNaN(parseInt(odometer))) {
+            Toast.show({
+                type: 'error',
+                text1: 'Invalid Odometer',
+                text2: 'Odometer must be a number'
+            });
             return;
         }
 
         if (!user) {
-            Alert.alert('Error', 'Please login first');
+            Toast.show({
+                type: 'error',
+                text1: 'Authentication Error',
+                text2: 'Please login first'
+            });
             return;
         }
 
@@ -66,7 +104,7 @@ export default function AddBikeScreen() {
                 userId: user.id,
                 brand: brand.trim(),
                 model: model.trim(),
-                year: parseInt(year),
+                year: bikeYear,
                 nickname: nickname.trim() || undefined,
                 engineCapacityCc: engineCc ? parseInt(engineCc) : undefined,
                 registrationNumber: registration.trim() || undefined,
@@ -79,11 +117,18 @@ export default function AddBikeScreen() {
                 isActive: true,
             });
 
-            Alert.alert('Success', 'Bike added successfully!', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-            ]);
+            Toast.show({
+                type: 'success',
+                text1: 'Bike Added!',
+                text2: `${brand} ${model} is now in your garage.`
+            });
+            navigation.goBack();
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to add bike');
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: error.message || 'Failed to add bike'
+            });
         } finally {
             setIsLoading(false);
         }
@@ -98,7 +143,7 @@ export default function AddBikeScreen() {
                 onPress={pickImage}
             >
                 {imageUri ? (
-                    <Image source={{ uri: imageUri }} style={styles.bikeImage} />
+                    <Image source={{ uri: imageUri }} style={styles.bikeImage} resizeMode="cover" />
                 ) : (
                     <View style={styles.placeholderImage}>
                         <Text style={[styles.placeholderText, { color: colors.text, opacity: 0.5 }]}>+ Add Bike Photo</Text>
@@ -276,7 +321,6 @@ const styles = StyleSheet.create({
     bikeImage: {
         width: '100%',
         height: '100%',
-        resizeMode: 'cover',
     },
     placeholderImage: {
         alignItems: 'center',

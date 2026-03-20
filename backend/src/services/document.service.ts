@@ -1,6 +1,7 @@
 import { Document, DocumentType, AlertStatus } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import { NotFoundError, ForbiddenError } from '../middleware/errorHandler.js';
+import { aiService } from './ai.service.js';
 
 export interface CreateDocumentDTO {
     documentType: DocumentType;
@@ -51,6 +52,13 @@ class DocumentService {
         // Generate alerts if there's an expiry date
         if (document.expiryDate) {
             await this.generateAlerts(document);
+        }
+
+        // Proactively attempt OCR if fileUrl is present and dates are missing
+        if (document.fileUrl && (!document.issueDate || !document.expiryDate)) {
+            this.autoFillFromOCR(document.id, userId).catch(err => 
+                console.error(`OCR Background Error for doc ${document.id}:`, err)
+            );
         }
 
         return this.enrichDocument(document);
@@ -203,6 +211,44 @@ class DocumentService {
         if (alerts.length > 0) {
             await prisma.documentAlert.createMany({ data: alerts });
         }
+    }
+
+    async autoFillFromOCR(documentId: string, userId: string): Promise<DocumentWithAlerts> {
+        const document = await this.findById(documentId, userId);
+        
+        if (!document.fileUrl) {
+            return document;
+        }
+
+        const ocrResult = await aiService.extractDocumentData(document.fileUrl);
+
+        // Scan for PII and log it for now (could be used to redact/alert in future)
+        if (ocrResult.rawText) {
+            const piiResult = await aiService.scanForPII(ocrResult.rawText);
+            if (piiResult.hasPII) {
+                console.warn(`[SECURITY] PII detected in document ${documentId}:`, piiResult.entities.map(e => e.type).join(', '));
+                // We could also store this in the DB to show a warning to the user
+            }
+        }
+
+        if (ocrResult.expiryDate || ocrResult.issueDate || ocrResult.title) {
+            const updated = await prisma.document.update({
+                where: { id: documentId },
+                data: {
+                    title: document.title === 'Untitled' ? (ocrResult.title || document.title) : document.title,
+                    issueDate: !document.issueDate ? ocrResult.issueDate : undefined,
+                    expiryDate: !document.expiryDate ? ocrResult.expiryDate : undefined,
+                },
+            });
+
+            if (!document.expiryDate && updated.expiryDate) {
+                await this.generateAlerts(updated);
+            }
+
+            return this.enrichDocument(updated);
+        }
+
+        return document;
     }
 
     private enrichDocument(document: Document | any): DocumentWithAlerts {

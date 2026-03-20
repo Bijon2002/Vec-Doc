@@ -27,6 +27,7 @@ import PrivacyPolicyScreen from '../screens/profile/PrivacyPolicyScreen';
 import HelpSupportScreen from '../screens/profile/HelpSupportScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import ChatScreen from '../screens/ai/ChatScreen';
+import PetrolQRScreen from '../screens/petrol/PetrolQRScreen';
 
 // Type definitions
 export type AuthStackParamList = {
@@ -58,6 +59,7 @@ export type RootStackParamList = {
     HelpSupport: undefined;
     Notifications: undefined;
     Chat: undefined;
+    PetrolQR: undefined;
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -266,6 +268,11 @@ function RootNavigator() {
                 component={NotificationsScreen}
                 options={{ title: 'Notifications' }}
             />
+            <RootStack.Screen
+                name="PetrolQR"
+                component={PetrolQRScreen}
+                options={{ title: 'Petrol QR (Sri Lanka)', presentation: 'modal' }}
+            />
         </RootStack.Navigator>
     );
 }
@@ -293,6 +300,7 @@ const linking: LinkingOptions<any> = {
             Settings: 'settings',
             RideTracking: 'ride-tracking',
             Notifications: 'notifications',
+            PetrolQR: 'petrol-qr',
 
             // Auth Stack Screens (if rendered)
             Login: 'login',

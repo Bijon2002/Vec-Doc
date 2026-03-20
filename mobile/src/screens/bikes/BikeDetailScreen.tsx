@@ -16,6 +16,9 @@ import { RootStackParamList } from '../../navigation';
 import * as DocumentRepo from '../../database/documentRepository';
 import * as MaintenanceRepo from '../../database/maintenanceRepository';
 import * as BikeRepo from '../../database/bikeRepository';
+import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
+import { Platform } from 'react-native';
 
 type BikeDetailNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type BikeDetailRouteProp = RouteProp<RootStackParamList, 'BikeDetail'>;
@@ -68,26 +71,45 @@ export default function BikeDetailScreen() {
     }
 
     const handleDelete = () => {
-        Alert.alert(
-            'Delete Bike',
-            'Are you sure you want to delete this bike? This will also delete all associated documents and maintenance logs.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await BikeRepo.deleteBike(bike.id);
-                            deleteBike(bike.id);
-                            navigation.goBack();
-                        } catch (error) {
-                            Alert.alert('Error', 'Failed to delete bike');
-                        }
+        const performDelete = async () => {
+            try {
+                // The store's deleteBike already calls BikeRepo.deleteBike
+                await deleteBike(bike.id);
+                Toast.show({
+                    type: 'success',
+                    text1: 'Bike Deleted',
+                    text2: `${bike.brand} ${bike.model} has been removed.`,
+                });
+                navigation.goBack();
+            } catch (error) {
+                console.error('Failed to delete bike:', error);
+                Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: 'Failed to delete bike. Please try again.',
+                });
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm('Are you sure you want to delete this bike? This will also delete all associated documents and maintenance logs.');
+            if (confirmed) {
+                performDelete();
+            }
+        } else {
+            Alert.alert(
+                'Delete Bike',
+                'Are you sure you want to delete this bike? This will also delete all associated documents and maintenance logs.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: performDelete
                     }
-                }
-            ]
-        );
+                ]
+            );
+        }
     };
 
     const handleMakePrimary = async () => {
@@ -123,16 +145,20 @@ export default function BikeDetailScreen() {
                     </TouchableOpacity>
                     <View style={styles.headerActions}>
                         <TouchableOpacity onPress={handleShare} style={styles.headerIcon}>
-                            <Text style={styles.iconText}>🔗</Text>
+                            <Ionicons name="share-outline" size={24} color={colors.text} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handleDelete} style={styles.headerIcon}>
-                            <Text style={styles.iconText}>🗑️</Text>
+                            <Ionicons name="trash-outline" size={24} color="#ff6b6b" />
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 <View style={styles.bikeInfo}>
-                    <Text style={styles.emoji}>🏍️</Text>
+                    {bike.imageUri ? (
+                        <Image source={{ uri: bike.imageUri }} style={styles.bikeDetailImage} />
+                    ) : (
+                        <Text style={styles.emoji}>🏍️</Text>
+                    )}
                     <Text style={[styles.bikeName, { color: colors.text }]}>
                         {bike.nickname || `${bike.brand} ${bike.model}`}
                     </Text>
@@ -251,7 +277,6 @@ const styles = StyleSheet.create({
     bikeImage: {
         width: '100%',
         height: 250,
-        resizeMode: 'cover',
     },
     errorText: {
         fontSize: 18,
@@ -286,6 +311,12 @@ const styles = StyleSheet.create({
     },
     emoji: {
         fontSize: 64,
+        marginBottom: 16,
+    },
+    bikeDetailImage: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
         marginBottom: 16,
     },
     bikeName: {

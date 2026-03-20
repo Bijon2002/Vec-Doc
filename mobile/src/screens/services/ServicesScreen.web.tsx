@@ -108,30 +108,10 @@ export default function ServicesScreenWeb() {
                         <ActivityIndicator size="large" color={colors.primary} />
                     </View>
                 ) : location ? (
-                    <View style={styles.mapPlaceholder}>
-                        <Text style={styles.mapText}>Map is not available on web. Please use a mobile device.</Text>
-                        {/ Optional: show a simple list of services here /}
-                        <ScrollView style={styles.simpleList}>
-                            {filteredServices.map(service => (
-                                <TouchableOpacity
-                                    key={service.id}
-                                    style={[styles.serviceItem, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
-                                >
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16 }}>
-                                        <View style={[styles.iconBox, { backgroundColor: getPinColor(service.type) + '20' }]}>
-                                            <Ionicons name="location" size={20} color={getPinColor(service.type)} />
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={[styles.serviceName, { color: colors.text }]}>{service.title}</Text>
-                                            <Text style={[styles.serviceDesc, { color: colors.text, opacity: 0.6 }]}>{service.description}</Text>
-                                        </View>
-                                        <View style={[styles.distanceBadge, { backgroundColor: colors.border }]}>
-                                            <Text style={[styles.distanceText, { color: colors.text }]}>1.2 km</Text>
-                                        </View>
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
+                    <View style={styles.webMapPlaceholder}>
+                        <Ionicons name="map-outline" size={64} color={colors.primary} style={{ opacity: 0.3, marginBottom: 16 }} />
+                        <Text style={[styles.mapText, { color: colors.text, fontWeight: 'bold' }]}>Interactive Maps Unavailable on Web</Text>
+                        <Text style={[styles.mapText, { color: colors.text, opacity: 0.7, marginTop: 8 }]}>Showing nearby services based on your location.</Text>
                     </View>
                 ) : (
                     <View style={styles.errorContainer}>
@@ -218,15 +198,15 @@ const styles = StyleSheet.create({
         height: '45%',
         width: '100%',
     },
-    mapPlaceholder: {
+    webMapPlaceholder: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#eee',
+        padding: 40,
     },
     mapText: {
-        color: '#666',
         textAlign: 'center',
+        fontSize: 14,
     },
     simpleList: {
         margin: 16,

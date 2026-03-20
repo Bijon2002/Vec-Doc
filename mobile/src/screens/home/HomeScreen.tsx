@@ -8,24 +8,26 @@ import {
     RefreshControl,
     Image,
     StatusBar,
+    Platform,
+    ImageBackground,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useTheme, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAppStore, useAuthStore, useBikeStore, Bike } from '../../store';
 import { RootStackParamList } from '../../navigation';
+import { aiApi } from '../../api/client';
 import * as BikeRepo from '../../database/bikeRepository';
 import * as DocumentRepo from '../../database/documentRepository';
 import * as MaintenanceRepo from '../../database/maintenanceRepository';
 
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-interface ExpiringDocument {
+interface PetrolAlert {
     id: string;
+    severity: 'high' | 'medium' | 'low';
     title: string;
-    type: string;
-    daysUntilExpiry: number;
-    bikeId: string;
+    message: string;
 }
 
 export default function HomeScreen() {
@@ -36,6 +38,7 @@ export default function HomeScreen() {
 
     const [expiringDocs, setExpiringDocs] = useState<DocumentRepo.Document[]>([]);
     const [recentMaintenance, setRecentMaintenance] = useState<MaintenanceRepo.MaintenanceRecord[]>([]);
+    const [petrolAlerts, setPetrolAlerts] = useState<PetrolAlert[]>([]);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [bikesMap, setBikesMap] = useState<Record<string, Bike>>({});
 
@@ -53,6 +56,32 @@ export default function HomeScreen() {
             // Load recent maintenance
             const maint = await MaintenanceRepo.getRecentMaintenance(user.id, 3);
             setRecentMaintenance(maint);
+
+            // Load Petrol Alerts from AI
+            try {
+                const response = await aiApi.getPetrolAlerts();
+                const alerts = response.data.alerts || [];
+                
+                // Add a dynamic global situation alert if requested by user
+                // This is a mock "Global Insight" based on the user's specific request
+                const globalAlert: PetrolAlert = {
+                    id: 'global-1',
+                    severity: 'high',
+                    title: 'Global Supply Alert',
+                    message: 'International tensions in oil-producing regions may impact fuel prices / supply. Consider saving fuel where possible.'
+                };
+                
+                setPetrolAlerts([globalAlert, ...alerts]);
+            } catch (e) {
+                console.error('Failed to load petrol alerts');
+                // Fallback to the global alert even if AI fails
+                setPetrolAlerts([{
+                    id: 'global-fallback',
+                    severity: 'medium',
+                    title: 'Supply Advisory',
+                    message: 'Monitor local news for upcoming fuel quota changes.'
+                }]);
+            }
 
             // Create bikes map for quick lookup
             const allBikes = await BikeRepo.getBikesByUserId(user.id);
@@ -91,6 +120,22 @@ export default function HomeScreen() {
         return bike.nickname || `${bike.brand} ${bike.model}`;
     };
 
+    const getAlertIcon = (severity: string) => {
+        switch (severity) {
+            case 'high': return 'alert-circle';
+            case 'medium': return 'warning';
+            default: return 'information-circle';
+        }
+    };
+
+    const getAlertColor = (severity: string) => {
+        switch (severity) {
+            case 'high': return '#ff6b6b';
+            case 'medium': return '#ffd43b';
+            default: return '#4c6ef5';
+        }
+    };
+
     return (
         <ScrollView
             style={[styles.container, { backgroundColor: colors.background }]}
@@ -98,32 +143,61 @@ export default function HomeScreen() {
                 <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
             }
         >
+            <StatusBar barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'} />
+
             {/* Header */}
-            <View style={[styles.header, { backgroundColor: colors.card }]}>
-                <View>
-                    <Text style={[styles.greeting, { color: colors.text }]}>{getGreeting()}</Text>
-                    <Text style={[styles.userName, { color: colors.primary }]}>{user?.fullName?.split(' ')[0] || 'Rider'}</Text>
+            <ImageBackground 
+                source={require('../../../assets/premium_bg.png')} 
+                style={styles.headerBackground}
+                imageStyle={styles.headerImage}
+            >
+                <View style={[styles.headerOverlay, { backgroundColor: colors.card + 'CC' }]}>
+                    <View>
+                        <Text style={[styles.greeting, { color: colors.text }]}>{getGreeting()}</Text>
+                        <Text style={[styles.userName, { color: colors.primary }]}>{user?.fullName?.split(' ')[0] || 'Rider'}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity
+                            style={{ marginRight: 16 }}
+                            onPress={() => navigation.navigate('Notifications' as any)}
+                        >
+                            <Ionicons name="notifications-outline" size={24} color={colors.text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => navigation.navigate('Profile' as any)}>
+                            {user?.profileImageUri && !user.profileImageUri.startsWith('blob:') ? (
+                                <Image source={{ uri: user.profileImageUri }} style={styles.avatarImage} />
+                            ) : (
+                                <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                                    <Text style={styles.avatarText}>
+                                        {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
+                                    </Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    </View>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <TouchableOpacity
-                        style={{ marginRight: 16 }}
-                        onPress={() => navigation.navigate('Notifications' as any)}
-                    >
-                        <Ionicons name="notifications-outline" size={24} color={colors.text} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => navigation.navigate('Profile' as any)}>
-                        {user?.profileImageUri ? (
-                            <Image source={{ uri: user.profileImageUri }} style={styles.avatarImage} />
-                        ) : (
-                            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                                <Text style={styles.avatarText}>
-                                    {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
-                                </Text>
+            </ImageBackground>
+
+            {/* Global Petrol Alerts Banner */}
+            {petrolAlerts.length > 0 && (
+                <View style={styles.alertCarousel}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} pagingEnabled>
+                        {petrolAlerts.map(alert => (
+                            <View key={alert.id} style={[styles.petrolAlertBanner, { backgroundColor: getAlertColor(alert.severity) + '15', borderColor: getAlertColor(alert.severity) }]}>
+                                <View style={styles.alertHeaderRow}>
+                                    <Ionicons name={getAlertIcon(alert.severity)} size={20} color={getAlertColor(alert.severity)} />
+                                    <Text style={[styles.petrolAlertTitle, { color: getAlertColor(alert.severity) }]}>{alert.title}</Text>
+                                </View>
+                                <Text style={[styles.petrolAlertMessage, { color: colors.text }]}>{alert.message}</Text>
+                                <View style={styles.aiBadge}>
+                                    <Ionicons name="sparkles" size={10} color={getAlertColor(alert.severity)} />
+                                    <Text style={[styles.aiBadgeText, { color: getAlertColor(alert.severity) }]}>AI INSIGHT</Text>
+                                </View>
                             </View>
-                        )}
-                    </TouchableOpacity>
+                        ))}
+                    </ScrollView>
                 </View>
-            </View>
+            )}
 
             {/* Quick Actions Grid */}
             <View style={styles.sectionContainer}>
@@ -139,10 +213,10 @@ export default function HomeScreen() {
 
                     <TouchableOpacity
                         style={[styles.actionButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-                        onPress={() => navigation.navigate('Services' as any)}
+                        onPress={() => navigation.navigate('PetrolQR')}
                     >
-                        <Ionicons name="construct" size={32} color={colors.primary} style={{ marginBottom: 8 }} />
-                        <Text style={[styles.actionText, { color: colors.text }]}>Services</Text>
+                        <Ionicons name="qr-code" size={32} color="#2e7d32" style={{ marginBottom: 8 }} />
+                        <Text style={[styles.actionText, { color: colors.text }]}>Fuel Pass</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -272,19 +346,22 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    header: {
+    headerBackground: {
+        width: '100%',
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
+        overflow: 'hidden',
+    },
+    headerImage: {
+        opacity: 0.6,
+    },
+    headerOverlay: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: 24,
         paddingTop: 60,
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        paddingBottom: 30,
     },
     greeting: {
         fontSize: 14,
@@ -348,6 +425,50 @@ const styles = StyleSheet.create({
     actionText: {
         fontWeight: '600',
         fontSize: 14,
+    },
+    alertCarousel: {
+        marginTop: 24,
+        paddingHorizontal: 24,
+    },
+    petrolAlertBanner: {
+        width: 300,
+        marginRight: 16,
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 1.5,
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    alertHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    petrolAlertTitle: {
+        fontSize: 15,
+        fontWeight: 'bold',
+        marginLeft: 8,
+    },
+    petrolAlertMessage: {
+        fontSize: 13,
+        lineHeight: 18,
+        opacity: 0.9,
+    },
+    aiBadge: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderBottomLeftRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    aiBadgeText: {
+        fontSize: 8,
+        fontWeight: 'bold',
+        marginLeft: 4,
     },
     alertSection: {
         margin: 24,

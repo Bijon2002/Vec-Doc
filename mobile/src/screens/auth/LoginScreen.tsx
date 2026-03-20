@@ -9,8 +9,8 @@ import {
     Platform,
     ScrollView,
     ActivityIndicator,
-    Alert,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthStore } from '../../store';
@@ -26,18 +26,44 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const validateEmail = (email: string) => {
+        return /\S+@\S+\.\S+/.test(email);
+    };
+    
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
-            Alert.alert('Error', 'Please enter email and password');
+            Toast.show({
+                type: 'error',
+                text1: 'Validation Error',
+                text2: 'Please enter both email and password'
+            });
+            return;
+        }
+
+        if (!validateEmail(email.trim())) {
+            Toast.show({
+                type: 'error',
+                text1: 'Invalid Email',
+                text2: 'Please enter a valid email address'
+            });
             return;
         }
 
         setLoading(true);
         try {
             await login(email, password);
+            Toast.show({
+                type: 'success',
+                text1: 'Success',
+                text2: 'Logged in successfully!'
+            });
             // Navigation is handled automatically by auth state change
         } catch (error: any) {
-            Alert.alert('Login Failed', error.message || 'Invalid email or password');
+            Toast.show({
+                type: 'error',
+                text1: 'Login Failed',
+                text2: error.message || 'Invalid email or password'
+            });
         } finally {
             setLoading(false);
         }
@@ -163,11 +189,16 @@ const styles = StyleSheet.create({
     formContainer: {
         borderRadius: 20,
         padding: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
         elevation: 5,
+        ...(Platform.OS === 'web' 
+            ? { boxShadow: '0px 4px 6px rgba(0,0,0,0.1)' } 
+            : {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 6,
+            }
+        ),
     },
     title: {
         fontSize: 24,
@@ -194,11 +225,16 @@ const styles = StyleSheet.create({
         padding: 16,
         alignItems: 'center',
         marginTop: 8,
-        shadowColor: '#4c6ef5',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
         elevation: 5,
+        ...(Platform.OS === 'web' 
+            ? { boxShadow: '0px 4px 8px rgba(76, 110, 245, 0.3)' } 
+            : {
+                shadowColor: '#4c6ef5',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+            }
+        ),
     },
     loginButtonDisabled: {
         opacity: 0.7,

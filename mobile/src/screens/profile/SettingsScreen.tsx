@@ -10,6 +10,7 @@ import {
     ActivityIndicator,
     TextInput,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useAppStore } from '../../store';
@@ -31,9 +32,17 @@ export default function SettingsScreen() {
             const permission = await NotificationService.registerForPushNotificationsAsync();
             if (permission) {
                 setNotificationsEnabled(true);
-                Alert.alert('Notifications Enabled', 'You will now receive reminders for documents and maintenance.');
+                Toast.show({
+                    type: 'success',
+                    text1: 'Notifications Enabled',
+                    text2: 'You will now receive reminders for documents and maintenance.'
+                });
             } else {
-                Alert.alert('Permission Denied', 'Could not enable notifications. Please check your system settings.');
+                Toast.show({
+                    type: 'error',
+                    text1: 'Permission Denied',
+                    text2: 'Could not enable notifications. Please check your system settings.'
+                });
                 setNotificationsEnabled(false);
             }
         } else {
@@ -47,7 +56,11 @@ export default function SettingsScreen() {
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission Denied', 'Permission to access location was denied');
+                Toast.show({
+                    type: 'error',
+                    text1: 'Permission Denied',
+                    text2: 'Permission to access location was denied'
+                });
                 return;
             }
 
@@ -57,9 +70,17 @@ export default function SettingsScreen() {
                 lng: location.coords.longitude,
                 address: `Lat: ${location.coords.latitude.toFixed(4)}, Lng: ${location.coords.longitude.toFixed(4)}`
             });
-            Alert.alert('Success', 'Home location updated!');
+            Toast.show({
+                type: 'success',
+                text1: 'Success',
+                text2: 'Home location updated!'
+            });
         } catch (error) {
-            Alert.alert('Error', 'Failed to get current location');
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to get current location'
+            });
         } finally {
             setLocationLoading(false);
         }

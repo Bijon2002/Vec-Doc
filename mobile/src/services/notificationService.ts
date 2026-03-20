@@ -15,6 +15,7 @@ Notifications.setNotificationHandler({
 export const NotificationService = {
     // Request permissions
     registerForPushNotificationsAsync: async () => {
+        if (Platform.OS === 'web') return null;
         let token;
 
         if (Platform.OS === 'android') {
@@ -46,6 +47,7 @@ export const NotificationService = {
 
     // Schedule a notification
     scheduleNotification: async (title: string, body: string, trigger: any) => {
+        if (Platform.OS === 'web') return false;
         try {
             await Notifications.scheduleNotificationAsync({
                 content: {
@@ -107,6 +109,31 @@ export const NotificationService = {
     },
 
     cancelAllNotifications: async () => {
+        if (Platform.OS === 'web') return;
         await Notifications.cancelAllScheduledNotificationsAsync();
+    },
+
+    // Immediate alert for global situations (Petrol/War)
+    showGlobalAlert: async (title: string, body: string) => {
+        if (Platform.OS === 'web') {
+            // Web doesn't support push, but we could use a custom toast if needed
+            // For now, we'll rely on the Home screen banner
+            return false;
+        }
+        try {
+            await Notifications.scheduleNotificationAsync({
+                content: {
+                    title,
+                    body,
+                    sound: true,
+                    priority: Notifications.AndroidNotificationPriority.MAX,
+                },
+                trigger: null, // Shoiw immediately
+            });
+            return true;
+        } catch (error) {
+            console.error('Error presenting global alert:', error);
+            return false;
+        }
     }
 };

@@ -9,13 +9,16 @@ import {
     KeyboardAvoidingView,
     Platform,
     Image,
-    Alert
+    ImageBackground,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore, useBikeStore, useAppStore } from '../../store';
-import { sendMessageToAI, ChatMessage, isOnlineServiceConfigured } from '../../ai/aiService';
+import { ChatMessage } from '../../ai/aiService';
 import * as ImagePicker from 'expo-image-picker';
+import { aiApi } from '../../api/client';
+import { Audio } from 'expo-av';
 
 interface Message {
     id: string;
@@ -29,23 +32,23 @@ export default function ChatScreen() {
     const { colors } = useTheme();
     const { user } = useAuthStore();
     const { primaryBike } = useBikeStore();
-    const { aiProvider, customAiUrl } = useAppStore();
+    const { aiProvider } = useAppStore();
 
-    const isOnline = isOnlineServiceConfigured();
+    const isOnline = true; // Forcing true as we now use our backend proxy
 
     const [messages, setMessages] = useState<Message[]>([
         {
             id: '1',
-            text: isOnline
-                ? `Hello ${user?.fullName?.split(' ')[0] || 'Rider'}! I'm your Vec-Doc assistant.\n\nI can help you with maintenance advice, diagnosing issues, or finding parts for your ${primaryBike()?.model || 'bike'}.`
-                : `Hello ${user?.fullName?.split(' ')[0] || 'Rider'}! I'm in ${aiProvider === 'mock' ? 'Offline' : aiProvider} Mode.\n\nI can help with general maintenance tips (Oil, Tires, Chain, Brakes) without an internet connection.`,
+            text: `Hello ${user?.fullName?.split(' ')[0] || 'Rider'}! I'm your Vec-Doc assistant.\n\nI can help you with maintenance advice, diagnosing issues, or finding parts for your ${primaryBike()?.model || 'bike'}.\n\n⚠️ **Global Update**: I can now also provide real-time alerts on the global petrol situation and help you save fuel during this crisis.`,
             sender: 'ai',
             timestamp: new Date(),
         }
     ]);
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
+    const [isPlaying, setIsPlaying] = useState<string | null>(null);
     const flatListRef = useRef<FlatList>(null);
+    const soundRef = useRef<Audio.Sound | null>(null);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [imageBase64, setImageBase64] = useState<string | null>(null);
 
@@ -53,12 +56,16 @@ export default function ChatScreen() {
         // Request permissions
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to make this work!');
+            Toast.show({
+                type: 'error',
+                text1: 'Permission Denied',
+                text2: 'Sorry, we need camera roll permissions to make this work!'
+            });
             return;
         }
 
         let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: 'images',
             allowsEditing: true,
             quality: 0.5,
             base64: true,
@@ -96,35 +103,9 @@ export default function ChatScreen() {
                 ? `The user is riding a ${bike.year} ${bike.brand} ${bike.model}. Mileage: ${bike.currentOdometerKm}km.`
                 : "The user has not selected a primary bike yet.";
 
-            // Prepare messages for AI
-            const userParts: any[] = [];
-            if (userText) userParts.push({ text: userText });
-            if (currentBase64) {
-                userParts.push({
-                    inlineData: {
-                        mimeType: 'image/jpeg',
-                        data: currentBase64
-                    }
-                });
-            }
-
-            // System prompt
-            const apiMessages: ChatMessage[] = [
-                {
-                    role: 'user',
-                    parts: [{ text: `System Context: You are 'Vec-Doc', an expert motorcycle mechanic assistant. ${bikeContext} Answer questions concisely and provide practical maintenance advice. If an image is provided, analyze the part or issue visible in it. Do not hallucinate.` }]
-                },
-                ...messages.map(m => ({
-                    role: m.sender === 'user' ? 'user' : 'model',
-                    parts: [{ text: m.text }]
-                } as ChatMessage)),
-                {
-                    role: 'user',
-                    parts: userParts
-                }
-            ];
-
-            const responseText = await sendMessageToAI(apiMessages);
+            // Use our new backend AI API
+            const response = await aiApi.chat(userText, bikeContext);
+            const responseText = response.data.response;
 
             const aiResponse: Message = {
                 id: (Date.now() + 1).toString(),
@@ -134,15 +115,58 @@ export default function ChatScreen() {
             };
             setMessages(prev => [...prev, aiResponse]);
         } catch (error) {
+            console.error('Chat Error:', error);
             const errorResponse: Message = {
                 id: (Date.now() + 1).toString(),
-                text: "Sorry, I'm having trouble determining that right now.",
+                text: "Sorry, I'm having trouble connecting to my service right now.",
                 sender: 'ai',
                 timestamp: new Date(),
             };
             setMessages(prev => [...prev, errorResponse]);
         } finally {
             setIsTyping(false);
+        }
+    };
+
+    const playVoice = async (text: string, messageId: string) => {
+        try {
+            if (isPlaying === messageId) {
+                await soundRef.current?.stopAsync();
+                setIsPlaying(null);
+                return;
+            }
+
+            setIsPlaying(messageId);
+            const response = await aiApi.generateVoice(text);
+            const base64 = response.data.audio;
+
+            if (!base64) throw new Error('No audio generated');
+
+            // Cleanup previous sound
+            if (soundRef.current) {
+                await soundRef.current.unloadAsync();
+            }
+
+            const { sound } = await Audio.Sound.createAsync(
+                { uri: `data:audio/mp3;base64,${base64}` },
+                { shouldPlay: true }
+            );
+            
+            soundRef.current = sound;
+            
+            sound.setOnPlaybackStatusUpdate((status) => {
+                if (status.isLoaded && status.didJustFinish) {
+                    setIsPlaying(null);
+                }
+            });
+        } catch (error) {
+            console.error('Voice Play Error:', error);
+            setIsPlaying(null);
+            Toast.show({
+                type: 'error',
+                text1: 'Audio Error',
+                text2: 'Could not play voice response.'
+            });
         }
     };
 
@@ -169,7 +193,7 @@ export default function ChatScreen() {
                     styles.bubble,
                     isUser
                         ? [styles.userBubble, { backgroundColor: colors.primary }]
-                        : [styles.aiBubble, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]
+                        : [styles.aiBubble, { backgroundColor: colors.card + 'E6', borderColor: colors.border, borderWidth: 1 }]
                 ]}>
                     {item.imageUri && (
                         <Image
@@ -185,12 +209,26 @@ export default function ChatScreen() {
                             {item.text}
                         </Text>
                     ) : null}
-                    <Text style={[
-                        styles.timestamp,
-                        isUser ? { color: 'rgba(255,255,255,0.7)' } : { color: colors.text, opacity: 0.5 }
-                    ]}>
-                        {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
+                    <View style={styles.bubbleFooter}>
+                        <Text style={[
+                            styles.timestamp,
+                            isUser ? { color: 'rgba(255,255,255,0.7)' } : { color: colors.text, opacity: 0.5 }
+                        ]}>
+                            {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                        {!isUser && (
+                            <TouchableOpacity 
+                                onPress={() => playVoice(item.text, item.id)}
+                                style={styles.voiceButton}
+                            >
+                                <Ionicons 
+                                    name={isPlaying === item.id ? "stop-circle-outline" : "volume-medium-outline"} 
+                                    size={18} 
+                                    color={colors.primary} 
+                                />
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
             </View>
         );
@@ -214,14 +252,20 @@ export default function ChatScreen() {
             </View>
 
             {/* Chat Area */}
-            <FlatList
-                ref={flatListRef}
-                data={messages}
-                renderItem={renderMessage}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-            />
+            <ImageBackground 
+                source={require('../../../assets/premium_bg.png')} 
+                style={styles.chatBackground}
+                imageStyle={styles.chatBackgroundImage}
+            >
+                <FlatList
+                    ref={flatListRef}
+                    data={messages}
+                    renderItem={renderMessage}
+                    keyExtractor={item => item.id}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                />
+            </ImageBackground>
 
             {/* Input Area */}
             <KeyboardAvoidingView
@@ -281,10 +325,15 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         borderBottomWidth: 1,
         elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
+        ...(Platform.OS === 'web' 
+            ? { boxShadow: '0px 2px 2px rgba(0,0,0,0.05)' } 
+            : {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 2,
+            }
+        ),
     },
     headerContent: {
         flexDirection: 'row',
@@ -304,6 +353,12 @@ const styles = StyleSheet.create({
     },
     headerSubtitle: {
         fontSize: 12,
+    },
+    chatBackground: {
+        flex: 1,
+    },
+    chatBackgroundImage: {
+        opacity: 0.15,
     },
     listContent: {
         padding: 20,
@@ -346,8 +401,15 @@ const styles = StyleSheet.create({
     },
     timestamp: {
         fontSize: 10,
-        alignSelf: 'flex-end',
+    },
+    bubbleFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         marginTop: 4,
+    },
+    voiceButton: {
+        marginLeft: 8,
     },
     inputContainer: {
         flexDirection: 'row',

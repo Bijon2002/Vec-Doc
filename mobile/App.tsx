@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Navigation from './src/navigation';
 import { initializeAuth } from './src/store';
 import { NotificationService } from './src/services/notificationService';
+import Toast from 'react-native-toast-message';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -60,6 +61,7 @@ export default function App() {
         <QueryClientProvider client={queryClient}>
             <StatusBar style="light" />
             <Navigation />
+            <Toast />
         </QueryClientProvider>
     );
 }
